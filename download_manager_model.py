@@ -36,13 +36,15 @@ class DownloadManagerModel:
                 print(f"File not found: {normalized_path}")
             file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
 
-            name      = file_setting.value("name")
+            mod_name  = file_setting.value("modName")
+            file_name = file_setting.value("name")
             file_time = file_setting.value("fileTime")
             version   = file_setting.value("version")
             installed = file_setting.value("installed")
 
             file_dl_entry = DownloadEntry(
-                name,
+                mod_name,
+                file_name,
                 file_time,
                 # semver.VersionInfo.parse(file_setting.value("General/version")),
                 version,

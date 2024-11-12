@@ -18,13 +18,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _selected: Dict[int, bool] = defaultdict(lambda: False)
-    _header = ("Filename", "Date", "Version", "Installed?")
-    _alignments = (
-        Qt.AlignmentFlag.AlignLeft,
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-        Qt.AlignmentFlag.AlignLeft,
-        Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
-    )
+    _header = ("Mod Name", "Filename", "Date", "Version", "Installed?")
 
     def init_data(self, data):
         self._data = data
@@ -40,7 +34,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return self._header[section]
 
     def columnCount(self, parent = ...):
-        return 4
+        return 5
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._data)
@@ -54,17 +48,19 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                 return None
 
             if column == 0:
-                return item.filename
+                return item.modname
             elif column == 1:
-                return item.filetime
+                return item.filename
             elif column == 2:
-                return item.version
+                return item.filetime
             elif column == 3:
+                return item.version
+            elif column == 4:
                 return item.installed
 
             return None
         elif role == Qt.ItemDataRole.TextAlignmentRole:
-            return self._alignments[index.column()]
+            return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
     def supportedDragActions(self): return None
     def supportedDropActions(self): return None

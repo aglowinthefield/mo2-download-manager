@@ -10,6 +10,7 @@ import semver
 
 @dataclass
 class DownloadEntry:
+    modname: str
     filename: str
     filetime: datetime
     version: semver.Version
