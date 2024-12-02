@@ -10,6 +10,7 @@ import semver
 
 @dataclass
 class DownloadEntry:
+    selected: bool
     modname: str
     filename: str
     filetime: datetime

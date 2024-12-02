@@ -18,13 +18,15 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _selected: Dict[int, bool] = defaultdict(lambda: False)
+
+    # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Mod Name", "Filename", "Date", "Version", "Installed?")
 
     def init_data(self, data):
         self._data = data
         self._selected.clear()
         self.dataChanged.emit(
-            self.index(0, 0),
+            self.index(0, 1),
             self.index(len(self._data) - 1, len(self._header) - 1),
         )
         self.layoutChanged.emit()
@@ -40,30 +42,52 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return len(self._data)
 
     def data(self, index: QModelIndex, role: int = ...):
+        row = index.row()
+        item = self._data[row]
+        column = index.column()
+
         if role == Qt.ItemDataRole.DisplayRole:
-            item = self._data[index.row()]
-            column = index.column()
             if item is None:
                 logger.info("Received null item for row " + index.row() + " and column " + column)
                 return None
-
-            if column == 0:
-                return item.modname
-            elif column == 1:
-                return item.filename
-            elif column == 2:
-                return item.filetime
-            elif column == 3:
-                return item.version
-            elif column == 4:
-                return item.installed
-
+            columns = [None, item.modname, item.filename, item.filetime, item.version, item.installed]
+            if column < len(columns): return columns[column]
             return None
-        elif role == Qt.ItemDataRole.TextAlignmentRole:
+
+        if role == Qt.ItemDataRole.CheckStateRole and column == 0:
+            return Qt.CheckState.Checked if self._selected[row] else Qt.CheckState.Unchecked
+
+        if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+    def setData(self, index: QModelIndex, value, role = ...):
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+            row = index.row()
+            # Update the checkbox state in the _selected dictionary
+            self._selected[row] = value == Qt.CheckState.Checked
+            # Log for debugging
+            logger.info(f"Row {row} checkbox state updated to: {self._selected[row]}")
+            # Emit dataChanged to notify the view
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+            return True
+        return False
 
     def supportedDragActions(self): return None
     def supportedDropActions(self): return None
+
+    def flags(self, index: QModelIndex):
+        if not index.isValid():
+            return Qt.ItemFlag.NoItemFlags
+
+        if index.column() == 0:
+            return (
+                    Qt.ItemFlag.ItemIsUserCheckable
+                    | Qt.ItemFlag.ItemIsEnabled
+                    | Qt.ItemFlag.ItemIsSelectable
+                    | Qt.ItemFlag.ItemIsEditable
+            )
+
+        return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
     def isSelected(self, index: QModelIndex):
         return self._selected.get(index.row(), False)

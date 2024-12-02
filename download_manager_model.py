@@ -14,7 +14,6 @@ from .download_entry import DownloadEntry
 
 
 class DownloadManagerModel:
-
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
 
@@ -36,13 +35,18 @@ class DownloadManagerModel:
                 print(f"File not found: {normalized_path}")
             file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
 
-            mod_name  = file_setting.value("modName")
+            mod_name = file_setting.value("modName")
             file_name = file_setting.value("name")
             file_time = file_setting.value("fileTime")
-            version   = file_setting.value("version")
+            version = file_setting.value("version")
             installed = file_setting.value("installed")
 
+            if mod_name is None and file_name is None:
+                print(f"Empty meta found for: {normalized_path}")
+                continue
+
             file_dl_entry = DownloadEntry(
+                False,
                 mod_name,
                 file_name,
                 file_time,
@@ -67,4 +71,3 @@ class DownloadManagerModel:
     @property
     def data(self):
         return self.__data
-

@@ -50,13 +50,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._table_widget = self.create_table_widget()
 
             """
-            Top row has 2 buttons to start:
+            Top row has 3 buttons:
                 Refresh: scans downloads for duplicates and makes the table
-                Delete: deletes selected rows
+                Select Duplicates
+                Select All
                 
             Main layout: vertical
                 Horizontal layout
                 Table layout (horizontal)
+                Delete Button
             """
             main_layout = QtWidgets.QVBoxLayout()
 
@@ -70,20 +72,34 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_bottom.addWidget(self._table_widget)
             wrapper_bottom.setLayout(layout_bottom)
 
+            wrapper_delete = QtWidgets.QWidget()
+            layout_delete = QtWidgets.QHBoxLayout()
+            layout_delete.addWidget(self.create_delete_button())
+            wrapper_delete.setLayout(layout_delete)
+
             main_layout.addWidget(wrapper_top)
             main_layout.addWidget(wrapper_bottom)
+            main_layout.addWidget(wrapper_delete)
 
             self.setLayout(main_layout)
-            self.setFixedSize(800, 600)
+            self.setBaseSize(800, 600)
 
         except Exception as ex:
             show_error(repr(ex), "Critical error! Please report this on Nexus / GitHub.",
                             QtWidgets.QMessageBox.Icon.Critical)
 
+    def create_delete_button(self):
+        delete_button = QtWidgets.QPushButton("Delete Selected", self)
+        delete_button.clicked.connect(self.delete_selected) # type: ignore
+        return delete_button
+
     def create_refresh_button(self):
         refresh_button = QtWidgets.QPushButton("Refresh", self)
         refresh_button.clicked.connect(self.refresh_data) # type: ignore
         return refresh_button
+
+    def delete_selected(self):
+        return True
 
     def refresh_data(self):
         self.__model.refresh()
@@ -94,21 +110,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.setModel(self._table_model)
         table.verticalHeader().setVisible(False)
         table.setSortingEnabled(False)
-        table_header = table.horizontalHeader()
-        table_header.setSectionResizeMode(
-            0, QtWidgets.QHeaderView.ResizeMode.ResizeToContents
-        )  # Priority plugin
-        table_header.setSectionResizeMode(
-            2, QtWidgets.QHeaderView.ResizeMode.ResizeToContents
-        )  # Priority mod
-        table_header.setCascadingSectionResizes(True)
-        table_header.setStretchLastSection(False)
-
-        table.setAlternatingRowColors(True)
+        table.setAlternatingRowColors(False)
+        table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
         table.setShowGrid(True)
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
 
-        # table.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
         return table
 
 
