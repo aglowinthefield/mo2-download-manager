@@ -46,7 +46,6 @@ class DownloadManagerModel:
                 continue
 
             file_dl_entry = DownloadEntry(
-                False,
                 mod_name,
                 file_name,
                 file_time,

@@ -127,9 +127,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
         table.setMouseTracking(True)
-
         return table
-
 
     def resize_table(self):
         max_column_width = 500  # Set your desired maximum width in pixels
@@ -138,13 +136,11 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         # Resize columns to contents
         resize_mode = QtWidgets.QHeaderView.ResizeMode.ResizeToContents
         self._table_widget.horizontalHeader().setSectionResizeMode(resize_mode)
-        self._table_widget.resizeRowsToContents()
 
         header = self._table_widget.horizontalHeader()
         for column in range(self._table_widget.model().columnCount()):
             header.setSectionResizeMode(column, resize_mode)
             actual_width = header.sectionSize(column)
-            logger.info(f"Actual width of column {column}: {actual_width}")
             if actual_width > max_column_width:
                 header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeMode.Interactive)
                 header.resizeSection(column, max_column_width)

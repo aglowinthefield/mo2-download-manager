@@ -1,4 +1,5 @@
 ﻿from collections import defaultdict
+from datetime import datetime
 from typing import List, Dict
 
 from PyQt6.QtGui import QColor
@@ -35,6 +36,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def headerData(self, section, orientation, role = ...):
         if role == Qt.ItemDataRole.DisplayRole:
+            if section > len(self._header) - 1:
+                logger.error(f"Section out of bounds {section} {role}")
             return self._header[section]
 
     def columnCount(self, parent = ...):
@@ -59,7 +62,11 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                 logger.info("Received null item for row " + index.row() + " and column " + column)
                 return None
             columns = [None, item.filename, item.filetime, item.version, item.installed]
-            if column < len(columns): return columns[column]
+            if column < len(columns):
+                column_value = columns[column]
+                if isinstance(column_value, datetime):
+                    return column_value.strftime("%Y-%m-%d %H:%M:%S")
+                return columns[column]
             return None
 
         elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
