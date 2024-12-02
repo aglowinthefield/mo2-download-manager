@@ -64,9 +64,8 @@ class DownloadManagerModel:
     def getDownloadsPath(self):
         return self.__organizer.downloadsPath()
 
-    # TODO
-    # def toggleAtIndex(self, index: int):
-    #     self.__data[index][0] = not self.__data[index][0]
+    def getDuplicateIndices(self) -> List[int]:
+        return []
 
     @property
     def data(self):

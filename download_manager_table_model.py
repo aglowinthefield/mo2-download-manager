@@ -1,6 +1,8 @@
 ﻿from collections import defaultdict
 from typing import List, Dict
 
+from PyQt6.QtGui import QColor
+
 from .util import logger
 from .download_entry import DownloadEntry
 
@@ -46,34 +48,37 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         item = self._data[row]
         column = index.column()
 
-        if role == Qt.ItemDataRole.DisplayRole:
+        if column == 0:
+            if role == Qt.ItemDataRole.CheckStateRole:
+                return Qt.CheckState.Checked if self._selected[row] else Qt.CheckState.Unchecked
+            if role == Qt.ItemDataRole.DisplayRole:
+                return item.modname
+
+        if role == Qt.ItemDataRole.DisplayRole and column > 0:
             if item is None:
                 logger.info("Received null item for row " + index.row() + " and column " + column)
                 return None
-            columns = [None, item.modname, item.filename, item.filetime, item.version, item.installed]
+            columns = [None, item.filename, item.filetime, item.version, item.installed]
             if column < len(columns): return columns[column]
             return None
 
-        if role == Qt.ItemDataRole.CheckStateRole and column == 0:
-            return Qt.CheckState.Checked if self._selected[row] else Qt.CheckState.Unchecked
+        elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
+            # Set background color for selected rows
+            opacity_red = QColor(255, 0, 0, 77)  # Red with 30% opacity
+            row = index.row()
+            if self._selected[row]:  # Check if the row is selected
+                return opacity_red
+            return None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
     def setData(self, index: QModelIndex, value, role = ...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
-            row = index.row()
-            # Update the checkbox state in the _selected dictionary
-            self._selected[row] = value == Qt.CheckState.Checked
-            # Log for debugging
-            logger.info(f"Row {row} checkbox state updated to: {self._selected[row]}")
-            # Emit dataChanged to notify the view
+            self._selected[index.row()] = value == Qt.CheckState.Checked.value
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
             return True
         return False
-
-    def supportedDragActions(self): return None
-    def supportedDropActions(self): return None
 
     def flags(self, index: QModelIndex):
         if not index.isValid():
@@ -84,7 +89,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                     Qt.ItemFlag.ItemIsUserCheckable
                     | Qt.ItemFlag.ItemIsEnabled
                     | Qt.ItemFlag.ItemIsSelectable
-                    | Qt.ItemFlag.ItemIsEditable
             )
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable

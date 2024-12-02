@@ -1,4 +1,6 @@
-﻿from .download_manager_table_model import DownloadManagerTableModel
+﻿
+from .util import logger
+from .download_manager_table_model import DownloadManagerTableModel
 from .multi_filter_proxy_model import MultiFilterProxyModel, MultiFilterMode
 
 try:
@@ -82,7 +84,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             main_layout.addWidget(wrapper_delete)
 
             self.setLayout(main_layout)
-            self.setBaseSize(800, 600)
+            self.setMinimumSize(1024, 768)
 
         except Exception as ex:
             show_error(repr(ex), "Critical error! Please report this on Nexus / GitHub.",
@@ -98,12 +100,21 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         refresh_button.clicked.connect(self.refresh_data) # type: ignore
         return refresh_button
 
+    def create_select_duplicates_button(self):
+        select_duplicates_button = QtWidgets.QPushButton("Select Duplicates", self)
+        select_duplicates_button.clicked.connect(self.select_duplicates) # type: ignore
+        return select_duplicates_button
+
+    def select_duplicates(self):
+        return True
+
     def delete_selected(self):
         return True
 
     def refresh_data(self):
         self.__model.refresh()
         self._table_model.init_data(self.__model.data)
+        self.resize_table()
 
     def create_table_widget(self):
         table = QtWidgets.QTableView()
@@ -112,12 +123,45 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.setSortingEnabled(False)
         table.setAlternatingRowColors(False)
         table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
-        table.setShowGrid(True)
+        table.setShowGrid(False)
         table.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
+        table.setMouseTracking(True)
 
         return table
 
+
+    def resize_table(self):
+        max_column_width = 500  # Set your desired maximum width in pixels
+        padding = 50
+
+        # Resize columns to contents
+        resize_mode = QtWidgets.QHeaderView.ResizeMode.ResizeToContents
+        self._table_widget.horizontalHeader().setSectionResizeMode(resize_mode)
+        self._table_widget.resizeRowsToContents()
+
+        header = self._table_widget.horizontalHeader()
+        for column in range(self._table_widget.model().columnCount()):
+            header.setSectionResizeMode(column, resize_mode)
+            actual_width = header.sectionSize(column)
+            logger.info(f"Actual width of column {column}: {actual_width}")
+            if actual_width > max_column_width:
+                header.setSectionResizeMode(column, QtWidgets.QHeaderView.ResizeMode.Interactive)
+                header.resizeSection(column, max_column_width)
+
+        # Make sure window doesn't get tall af
+        screen = QApplication.primaryScreen()
+        screen_geometry = screen.availableGeometry()
+        screen_height = screen_geometry.height()
+
+        # Maximum height: 80% of screen height
+        max_height = int(screen_height * 0.8)
+
+        table_size = self._table_widget.sizeHint()
+        new_height = min(table_size.height() + padding, max_height)
+
+        # Resize window to fit the table with the new height constraint
+        self.resize(table_size.width() + padding, new_height)
 
     def init(self): return True
 
