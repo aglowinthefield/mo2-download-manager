@@ -146,6 +146,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def install_selected(self):
         self._model.bulk_install(self._selected)
+        self.notify_table_updated()
 
     def delete_selected(self):
         for item in self._selected:

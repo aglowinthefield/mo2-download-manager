@@ -44,7 +44,7 @@ class DownloadManagerModel:
             file_name = os.path.basename(normalized_path)
             file_time = file_setting.value("fileTime")
             version = file_setting.value("version")
-            installed = file_setting.value("installed")
+            installed = file_setting.value("installed") == "true"
             raw_path = Path(normalized_path.removesuffix(".meta"))
 
             if mod_name is None and file_name is None:
