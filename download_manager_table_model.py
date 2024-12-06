@@ -4,6 +4,7 @@ from typing import List, Dict
 
 from PyQt6.QtGui import QColor
 
+from .download_manager_model import DownloadManagerModel
 from .util import logger
 from .download_entry import DownloadEntry
 
@@ -16,17 +17,21 @@ except ImportError:
     from PyQt5.QtCore import Qt, QModelIndex
     from PyQt5.QtWidgets import QApplication
 
+
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
+    _model: DownloadManagerModel = None
     _selected: Dict[int, bool] = defaultdict(lambda: False)
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Mod Name", "Filename", "Date", "Version", "Installed?")
+    _columnFields = ["modname", "filename", "filetime", "version", "installed"]
 
-    def init_data(self, data):
+    def init_data(self, data: List[DownloadEntry], model: DownloadManagerModel):
         self._data = data
+        self._model = model
         self._selected.clear()
         self.dataChanged.emit(
             self.index(0, 1),
@@ -34,13 +39,13 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         )
         self.layoutChanged.emit()
 
-    def headerData(self, section, orientation, role = ...):
+    def headerData(self, section, orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
             if section > len(self._header) - 1:
                 logger.error(f"Section out of bounds {section} {role}")
             return self._header[section]
 
-    def columnCount(self, parent = ...):
+    def columnCount(self, parent=...):
         return 5
 
     def rowCount(self, parent=QtCore.QModelIndex()):
@@ -53,13 +58,22 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         if column == 0:
             if role == Qt.ItemDataRole.CheckStateRole:
-                return Qt.CheckState.Checked if self._selected[row] else Qt.CheckState.Unchecked
+                return (
+                    Qt.CheckState.Checked
+                    if self._selected[row]
+                    else Qt.CheckState.Unchecked
+                )
             if role == Qt.ItemDataRole.DisplayRole:
                 return item.modname
 
         if role == Qt.ItemDataRole.DisplayRole and column > 0:
             if item is None:
-                logger.info("Received null item for row " + index.row() + " and column " + column)
+                logger.info(
+                    "Received null item for row "
+                    + index.row()
+                    + " and column "
+                    + column
+                )
                 return None
             columns = [None, item.filename, item.filetime, item.version, item.installed]
             if column < len(columns):
@@ -80,7 +94,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
-    def setData(self, index: QModelIndex, value, role = ...):
+    def setData(self, index: QModelIndex, value, role=...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
             self._selected[index.row()] = value == Qt.CheckState.Checked.value
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
@@ -93,13 +107,27 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         if index.column() == 0:
             return (
-                    Qt.ItemFlag.ItemIsUserCheckable
-                    | Qt.ItemFlag.ItemIsEnabled
-                    | Qt.ItemFlag.ItemIsSelectable
+                Qt.ItemFlag.ItemIsUserCheckable
+                | Qt.ItemFlag.ItemIsEnabled
+                | Qt.ItemFlag.ItemIsSelectable
             )
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
+    def sort(self, column, order=...):
+        self.layoutAboutToBeChanged.emit()
+        self._data.sort(
+            key=lambda row: str(row[self._columnFields[column]]).lower(),
+            reverse=(order == Qt.SortOrder.DescendingOrder),
+        )
+        self.layoutChanged.emit()
+
     def isSelected(self, index: QModelIndex):
         return self._selected.get(index.row(), False)
 
+    # def select_all(self):
+
+    def delete_selected(self):
+        indices = [key for key, value in self._selected.items() if value]
+        for index in indices:
+            self._model.delete_at_index(index)

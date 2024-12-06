@@ -3,7 +3,6 @@ from pathlib import Path
 from typing import List
 
 import mobase
-import semver
 
 try:
     from PyQt6.QtCore import QSettings
@@ -17,7 +16,7 @@ class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
 
-    __files = []
+    __files: List[str] = []
 
     def __init__(self, organizer: mobase.IOrganizer):
         self.__organizer = organizer
@@ -36,24 +35,23 @@ class DownloadManagerModel:
             file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
 
             mod_name = file_setting.value("modName")
-            file_name = file_setting.value("name")
+            file_name = os.path.basename(normalized_path)
             file_time = file_setting.value("fileTime")
             version = file_setting.value("version")
             installed = file_setting.value("installed")
+            raw_path = Path(normalized_path.removesuffix(".meta"))
 
             if mod_name is None and file_name is None:
                 print(f"Empty meta found for: {normalized_path}")
                 continue
 
+            # TODO: Do we want to try semver parsing here? Most mods don't have valid semver strings
             file_dl_entry = DownloadEntry(
-                mod_name,
-                file_name,
-                file_time,
-                # semver.VersionInfo.parse(file_setting.value("General/version")),
-                version,
-                installed
+                mod_name, file_name, file_time, version, installed, raw_path
             )
             self.__data.append(file_dl_entry)
+
+        self.__data.sort(key=lambda x: (x.modname or x.filename, x.version, x.filetime))
 
     def collectMetaFiles(self):
         directory_path = Path(self.getDownloadsPath())
@@ -65,6 +63,13 @@ class DownloadManagerModel:
 
     def getDuplicateIndices(self) -> List[int]:
         return []
+
+    def delete_at_index(self, index: int) -> bool:
+        file_to_delete = self.__data[index]
+        file_path = file_to_delete.raw_file_path
+
+        if Path.is_file(file_path):
+            Path.unlink(file_path)
 
     @property
     def data(self):

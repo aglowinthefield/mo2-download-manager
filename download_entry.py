@@ -1,17 +1,21 @@
 ﻿from dataclasses import dataclass
 from datetime import datetime
-import sys
-import os
+from pathlib import Path
 
-# Add the 'libs' folder to the system path to allow imports from there
-lib_dir = os.path.join(os.path.dirname(__file__), 'libs')
-sys.path.append(lib_dir)
-import semver
+
+class DictMixin:
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
 
 @dataclass
-class DownloadEntry:
+class DownloadEntry(DictMixin):
     modname: str
     filename: str
     filetime: datetime
-    version: semver.Version
+    version: str
     installed: bool
+    raw_file_path: Path
