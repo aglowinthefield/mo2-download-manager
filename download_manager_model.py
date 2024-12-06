@@ -16,6 +16,12 @@ except ImportError:
 from .download_entry import DownloadEntry
 
 
+def _hide_download(item: DownloadEntry):
+    file_settings = QSettings(str(item.raw_meta_path), QSettings.Format.IniFormat)
+    file_settings.setValue("removed", "true")
+    file_settings.sync()
+
+
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
@@ -109,13 +115,18 @@ class DownloadManagerModel:
         if Path.is_file(file_to_delete.raw_file_path):
             Path.unlink(file_to_delete.raw_file_path)
 
+    @staticmethod
+    def bulk_hide(items: set[DownloadEntry]):
+        for entry in items:
+            _hide_download(entry)
+
     def bulk_install(self, items: set[DownloadEntry]):
         for mod in items:
             self.install_mod(mod)
 
     def install_mod(self, mod: DownloadEntry):
         self.__organizer.installMod(mod.raw_file_path)
-        # set meta to hidden TODO make this an option in settings.
+        _hide_download(mod)
 
     @property
     def data(self):

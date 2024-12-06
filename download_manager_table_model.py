@@ -158,6 +158,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         for item in self._selected:
             self._model.delete(item)
 
+    def hide_selected(self):
+        self._model.bulk_hide(self._selected)
+
     def notify_table_updated(self):
         self.dataChanged.emit(
             self.index(0, 0),

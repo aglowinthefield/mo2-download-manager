@@ -62,6 +62,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_left.addItem(spacer)
 
             layout_left.addWidget(self.create_install_button())
+            layout_left.addWidget(self.create_hide_button())
             layout_left.addWidget(self.create_delete_button())
 
             # This area should have the operations for the selected elements
@@ -96,9 +97,14 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return delete_button
 
     def create_install_button(self):
-        delete_button = QtWidgets.QPushButton("Install Selected", self)
-        delete_button.clicked.connect(self.install_selected)  # type: ignore
-        return delete_button
+        install_button = QtWidgets.QPushButton("Install Selected", self)
+        install_button.clicked.connect(self.install_selected)  # type: ignore
+        return install_button
+
+    def create_hide_button(self):
+        hide_button = QtWidgets.QPushButton("Mark Hidden", self)
+        hide_button.clicked.connect(self.hide_selected)  # type: ignore
+        return hide_button
 
     # endregion
 
@@ -150,6 +156,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def delete_selected(self):
         self._table_model.delete_selected()
+        self.refresh_data()
+
+    def hide_selected(self):
+        self._table_model.hide_selected()
         self.refresh_data()
 
     def refresh_data(self):
