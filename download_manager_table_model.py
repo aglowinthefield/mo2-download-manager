@@ -23,7 +23,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _model: DownloadManagerModel = None
-    _selected: Dict[int, bool] = defaultdict(lambda: False)
+    _selected: set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Mod Name", "Filename", "Date", "Version", "Installed?")
@@ -33,10 +33,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self._data = data
         self._model = model
         self._selected.clear()
-        self.dataChanged.emit(
-            self.index(0, 1),
-            self.index(len(self._data) - 1, len(self._header) - 1),
-        )
+        self.notify_table_updated()
         self.layoutChanged.emit()
 
     def headerData(self, section, orientation, role=...):
@@ -60,7 +57,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             if role == Qt.ItemDataRole.CheckStateRole:
                 return (
                     Qt.CheckState.Checked
-                    if self._selected[row]
+                    if item in self._selected
                     else Qt.CheckState.Unchecked
                 )
             if role == Qt.ItemDataRole.DisplayRole:
@@ -86,17 +83,23 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
             # Set background color for selected rows
             opacity_red = QColor(255, 0, 0, 77)  # Red with 30% opacity
-            row = index.row()
-            if self._selected[row]:  # Check if the row is selected
-                return opacity_red
-            return None
+            return opacity_red if item in self._selected else None
+            # if self._selected[row]:  # Check if the row is selected
+            #     return opacity_red
+            # return None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
     def setData(self, index: QModelIndex, value, role=...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
-            self._selected[index.row()] = value == Qt.CheckState.Checked.value
+            selected = value == Qt.CheckState.Checked.value
+            selected_data = self._data[index.row()]
+            (
+                self._selected.add(selected_data)
+                if selected
+                else self._selected.remove(selected_data)
+            )
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
             return True
         return False
@@ -122,12 +125,27 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         )
         self.layoutChanged.emit()
 
-    def isSelected(self, index: QModelIndex):
-        return self._selected.get(index.row(), False)
+    def select_duplicates(self):
+        self._model.select_duplicates()
 
-    # def select_all(self):
+    def select_all(self):
+        for item in self._data:
+            self._selected.add(item)
+        self.notify_table_updated()
+
+    def select_none(self):
+        self._selected.clear()
+        self.notify_table_updated()
+
+    def install_selected(self):
+        return True
 
     def delete_selected(self):
-        indices = [key for key, value in self._selected.items() if value]
-        for index in indices:
-            self._model.delete_at_index(index)
+        for item in self._selected:
+            self._model.delete(item)
+
+    def notify_table_updated(self):
+        self.dataChanged.emit(
+            self.index(0, 0),
+            self.index(len(self._data) - 1, len(self._header) - 1),
+        )

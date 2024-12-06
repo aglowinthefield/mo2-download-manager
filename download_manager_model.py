@@ -61,15 +61,16 @@ class DownloadManagerModel:
     def getDownloadsPath(self):
         return self.__organizer.downloadsPath()
 
-    def getDuplicateIndices(self) -> List[int]:
-        return []
+    def get_duplicates(self) -> set[DownloadEntry]:
+        dupes = set()
+        return dupes
 
-    def delete_at_index(self, index: int) -> bool:
-        file_to_delete = self.__data[index]
-        file_path = file_to_delete.raw_file_path
-
-        if Path.is_file(file_path):
-            Path.unlink(file_path)
+    def delete(self, item: DownloadEntry):
+        file_to_delete = next((d for d in self.__data if d == item), None)
+        if file_to_delete is None:
+            return
+        if Path.is_file(file_to_delete.raw_file_path):
+            Path.unlink(file_to_delete.raw_file_path)
 
     @property
     def data(self):

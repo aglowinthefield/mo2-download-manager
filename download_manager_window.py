@@ -1,19 +1,18 @@
 ﻿from .util import logger
 from .download_manager_table_model import DownloadManagerTableModel
-from .multi_filter_proxy_model import MultiFilterProxyModel, MultiFilterMode
 
 try:
     import PyQt6.QtCore as QtCore
     import PyQt6.QtGui as QtGui
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtWidgets import QApplication, QSizePolicy
 except ImportError:
     import PyQt5.QtCore as QtCore
     import PyQt5.QtGui as QtGui
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
-    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtWidgets import QApplication, QSizePolicy
 
 import mobase
 
@@ -43,23 +42,26 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._table_model = DownloadManagerTableModel()
             self._table_widget = self.create_table_widget()
 
-            """
-            Top row has 3 buttons:
-                Refresh: scans downloads for duplicates and makes the table
-                Select Duplicates
-                Select All
-                
-            Main layout: vertical
-                Horizontal layout
-                Table layout (horizontal)
-                Delete Button
-            """
             main_layout = QtWidgets.QHBoxLayout()
 
             self._wrapper_left = QtWidgets.QWidget()
+
+            # This area has the select/refresh/table operations fields
             layout_left = QtWidgets.QVBoxLayout()
             layout_left.addWidget(self.create_refresh_button())
             layout_left.addWidget(self.create_select_duplicates_button())
+            layout_left.addWidget(self.create_select_all_button())
+            layout_left.addWidget(self.create_select_none_button())
+
+            spacer = QtWidgets.QSpacerItem(
+                20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
+            )
+            layout_left.addItem(spacer)
+
+            layout_left.addWidget(self.create_install_button())
+            layout_left.addWidget(self.create_delete_button())
+
+            # This area should have the operations for the selected elements
             self._wrapper_left.setLayout(layout_left)
 
             self._wrapper_right = QtWidgets.QWidget()
@@ -67,14 +69,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
 
-            # wrapper_delete = QtWidgets.QWidget()
-            # layout_delete = QtWidgets.QHBoxLayout()
-            # layout_delete.addWidget(self.create_delete_button())
-            # wrapper_delete.setLayout(layout_delete)
-
             main_layout.addWidget(self._wrapper_left)
             main_layout.addWidget(self._wrapper_right)
-            # main_layout.addWidget(wrapper_delete)
 
             # Dimensions / ratios
             main_layout.setStretch(0, 1)  # Buttons
@@ -90,23 +86,54 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.Icon.Critical,
             )
 
+    # region UI - Download Operations
     def create_delete_button(self):
         delete_button = QtWidgets.QPushButton("Delete Selected", self)
         delete_button.clicked.connect(self.delete_selected)  # type: ignore
         return delete_button
 
+    def create_install_button(self):
+        delete_button = QtWidgets.QPushButton("Install Selected", self)
+        delete_button.clicked.connect(self.install_selected)  # type: ignore
+        return delete_button
+
+    # endregion
+
+    # region UI - Table Operations
     def create_refresh_button(self):
         refresh_button = QtWidgets.QPushButton("Refresh", self)
         refresh_button.clicked.connect(self.refresh_data)  # type: ignore
         return refresh_button
 
     def create_select_duplicates_button(self):
-        select_duplicates_button = QtWidgets.QPushButton("Select Duplicates", self)
+        select_duplicates_button = QtWidgets.QPushButton("Select Old Duplicates", self)
         select_duplicates_button.clicked.connect(self.select_duplicates)  # type: ignore
         return select_duplicates_button
 
+    def create_select_all_button(self):
+        select_all_button = QtWidgets.QPushButton("Select All", self)
+        select_all_button.clicked.connect(self.select_all)  # type: ignore
+        return select_all_button
+
+    def create_select_none_button(self):
+        select_none_button = QtWidgets.QPushButton("Select None", self)
+        select_none_button.clicked.connect(self.select_none)  # type: ignore
+        return select_none_button
+
+    # endregion
+
+    def select_all(self):
+        return self._table_model.select_all()
+
+    def select_none(self):
+        return self._table_model.select_none()
+
     def select_duplicates(self):
         return True
+
+    def install_selected(self):
+        self._table_model.install_selected()
+        self.refresh_data()
 
     def delete_selected(self):
         self._table_model.delete_selected()
@@ -167,7 +194,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
         # Resize window to fit the table with the new height constraint
         self.resize(table_size.width() + button_size.width() + padding, new_height)
-        self._wrapper_left.adjustSize()
 
     def init(self):
         return True

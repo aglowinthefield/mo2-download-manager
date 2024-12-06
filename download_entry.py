@@ -11,7 +11,7 @@ class DictMixin:
         setattr(self, key, value)
 
 
-@dataclass
+@dataclass(frozen=True)
 class DownloadEntry(DictMixin):
     modname: str
     filename: str
