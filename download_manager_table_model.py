@@ -81,6 +81,12 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             ]
             if column < len(columns):
                 column_value = columns[column]
+                if isinstance(column_value, QtCore.QDateTime):
+                    if not column_value.isValid():
+                        return None
+                    string_date = column_value.toString("yyyy-MM-dd HH:mm:ss")
+                    logger.info(string_date)
+                    return string_date
                 if isinstance(column_value, datetime):
                     return column_value.strftime("%Y-%m-%d %H:%M:%S")
                 return columns[column]

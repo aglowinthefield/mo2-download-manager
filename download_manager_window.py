@@ -1,5 +1,5 @@
-﻿from .util import logger
-from .download_manager_table_model import DownloadManagerTableModel
+﻿from .download_manager_table_model import DownloadManagerTableModel
+from .util import logger
 
 try:
     import PyQt6.QtCore as QtCore
@@ -158,12 +158,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table = QtWidgets.QTableView()
         table.setModel(self._table_model)
         table.verticalHeader().setVisible(False)
-        table.setAlternatingRowColors(False)
+        table.setAlternatingRowColors(True)
         table.setSortingEnabled(True)
         table.setSizeAdjustPolicy(
             QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
         )
-        table.setShowGrid(False)
+        table.setShowGrid(True)
         table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )

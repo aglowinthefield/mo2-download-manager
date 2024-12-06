@@ -1,5 +1,6 @@
 ﻿import os.path
 from collections import defaultdict
+from datetime import datetime
 from pathlib import Path
 from typing import List
 
@@ -8,7 +9,7 @@ import mobase
 from .util import logger
 
 try:
-    from PyQt6.QtCore import QSettings
+    from PyQt6.QtCore import QSettings, QDateTime, QVariant
 except ImportError:
     from PyQt5.QtCore import QSettings
 
@@ -42,18 +43,27 @@ class DownloadManagerModel:
             name = file_setting.value("name")
             mod_name = file_setting.value("modName")
             file_name = os.path.basename(normalized_path)
-            file_time = file_setting.value("fileTime")
+            # file_time: QVariant = file_setting.value("fileTime")
+            file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
             version = file_setting.value("version")
             installed = file_setting.value("installed") == "true"
             raw_path = Path(normalized_path.removesuffix(".meta"))
 
+            # if not file_time.isValid():
+            #     logger.info("Invalid QDateTime " + str(file_time))
             if mod_name is None and file_name is None:
                 print(f"Empty meta found for: {normalized_path}")
                 continue
 
             # TODO: Do we want to try semver parsing here? Most mods don't have valid semver strings
             file_dl_entry = DownloadEntry(
-                name, mod_name, file_name, file_time, version, installed, raw_path
+                name,
+                mod_name,
+                file_name,
+                file_time,
+                version,
+                installed,
+                raw_path,
             )
             self.__data.append(file_dl_entry)
 
