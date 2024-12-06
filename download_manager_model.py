@@ -48,6 +48,7 @@ class DownloadManagerModel:
             version = file_setting.value("version")
             installed = file_setting.value("installed") == "true"
             raw_path = Path(normalized_path.removesuffix(".meta"))
+            raw_meta_path = Path(normalized_path)
 
             # if not file_time.isValid():
             #     logger.info("Invalid QDateTime " + str(file_time))
@@ -64,6 +65,7 @@ class DownloadManagerModel:
                 version,
                 installed,
                 raw_path,
+                raw_meta_path,
             )
             self.__data.append(file_dl_entry)
 
@@ -71,7 +73,11 @@ class DownloadManagerModel:
 
     def collectMetaFiles(self):
         directory_path = Path(self.getDownloadsPath())
-        files = [str(f) for f in directory_path.glob("*.meta") if f.is_file()]
+        files = [
+            str(f)
+            for f in directory_path.glob("*.meta")
+            if f.is_file() and not f.stem.endswith("unfinished")
+        ]
         return files
 
     def getDownloadsPath(self):
@@ -105,7 +111,11 @@ class DownloadManagerModel:
 
     def bulk_install(self, items: set[DownloadEntry]):
         for mod in items:
-            self.__organizer.installMod(mod.raw_file_path)
+            self.install_mod(mod)
+
+    def install_mod(self, mod: DownloadEntry):
+        self.__organizer.installMod(mod.raw_file_path)
+        # set meta to hidden TODO make this an option in settings.
 
     @property
     def data(self):

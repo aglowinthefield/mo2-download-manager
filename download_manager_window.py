@@ -32,8 +32,10 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 class DownloadManagerWindow(QtWidgets.QDialog):
 
     __model: DownloadManagerModel = None
+    __omit_uninstalled: bool = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
+        self.__omit_uninstalled = False
         try:
             self.__organizer = organizer
             self.__model = DownloadManagerModel(organizer)
@@ -108,7 +110,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
         logger.info(f"Hiding Installed Files: {checked}")
-        self.refresh_data(checked == Qt.CheckState.Checked.value)
+        self.__omit_uninstalled = checked == Qt.CheckState.Checked.value
+        self.refresh_data()
 
     def create_refresh_button(self):
         refresh_button = QtWidgets.QPushButton("Refresh", self)
@@ -149,8 +152,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._table_model.delete_selected()
         self.refresh_data()
 
-    def refresh_data(self, omit_installed: bool = False):
-        self.__model.refresh(omit_installed)
+    def refresh_data(self):
+        self.__model.refresh(self.__omit_uninstalled)
         self._table_model.init_data(self.__model.data, self.__model)
         self.resize_window()
 

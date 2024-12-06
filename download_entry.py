@@ -20,3 +20,4 @@ class DownloadEntry(DictMixin):
     version: str
     installed: bool
     raw_file_path: Path
+    raw_meta_path: Path
