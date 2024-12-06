@@ -94,7 +94,8 @@ class DownloadManagerModel:
             Path.unlink(file_to_delete.raw_file_path)
 
     def bulk_install(self, items: set[DownloadEntry]):
-        return True
+        for mod in items:
+            self.__organizer.installMod(mod.raw_file_path)
 
     @property
     def data(self):
