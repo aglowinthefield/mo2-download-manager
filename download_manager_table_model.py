@@ -1,12 +1,11 @@
-﻿from collections import defaultdict
-from datetime import datetime
-from typing import List, Dict
+﻿from datetime import datetime
+from typing import List
 
 from PyQt6.QtGui import QColor
 
+from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .util import logger
-from .download_entry import DownloadEntry
 
 try:
     import PyQt6.QtCore as QtCore
@@ -26,8 +25,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _selected: set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Mod Name", "Filename", "Date", "Version", "Installed?")
-    _columnFields = ["modname", "filename", "filetime", "version", "installed"]
+    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Installed?")
+    _columnFields = ["name", "modname", "filename", "filetime", "version", "installed"]
 
     def init_data(self, data: List[DownloadEntry], model: DownloadManagerModel):
         self._data = data
@@ -43,7 +42,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return self._header[section]
 
     def columnCount(self, parent=...):
-        return 5
+        return 6
 
     def rowCount(self, parent=QtCore.QModelIndex()):
         return len(self._data)
@@ -61,7 +60,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                     else Qt.CheckState.Unchecked
                 )
             if role == Qt.ItemDataRole.DisplayRole:
-                return item.modname
+                return item.name
 
         if role == Qt.ItemDataRole.DisplayRole and column > 0:
             if item is None:
@@ -72,7 +71,14 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                     + column
                 )
                 return None
-            columns = [None, item.filename, item.filetime, item.version, item.installed]
+            columns = [
+                None,
+                item.modname,
+                item.filename,
+                item.filetime,
+                item.version,
+                item.installed,
+            ]
             if column < len(columns):
                 column_value = columns[column]
                 if isinstance(column_value, datetime):
@@ -126,7 +132,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.layoutChanged.emit()
 
     def select_duplicates(self):
-        self._model.select_duplicates()
+        self._selected = self._model.get_duplicates()
+        self.notify_table_updated()
 
     def select_all(self):
         for item in self._data:

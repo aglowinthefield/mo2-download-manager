@@ -129,7 +129,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return self._table_model.select_none()
 
     def select_duplicates(self):
-        return True
+        return self._table_model.select_duplicates()
 
     def install_selected(self):
         self._table_model.install_selected()

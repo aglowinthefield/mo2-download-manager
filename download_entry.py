@@ -13,6 +13,7 @@ class DictMixin:
 
 @dataclass(frozen=True)
 class DownloadEntry(DictMixin):
+    name: str
     modname: str
     filename: str
     filetime: datetime
