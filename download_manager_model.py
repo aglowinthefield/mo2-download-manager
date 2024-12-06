@@ -25,9 +25,11 @@ class DownloadManagerModel:
         self.__organizer = organizer
         self.__data = []
 
-    def refresh(self):
+    def refresh(self, omit_installed: bool = False):
         self.__files = self.collectMetaFiles()
         self.readMetaFiles()
+        if omit_installed:
+            self.__data = [d for d in self.__data if not d.installed]
 
     def readMetaFiles(self):
         self.__data = []
@@ -90,6 +92,9 @@ class DownloadManagerModel:
             return
         if Path.is_file(file_to_delete.raw_file_path):
             Path.unlink(file_to_delete.raw_file_path)
+
+    def bulk_install(self, items: set[DownloadEntry]):
+        return True
 
     @property
     def data(self):

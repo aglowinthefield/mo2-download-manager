@@ -52,6 +52,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_left.addWidget(self.create_select_duplicates_button())
             layout_left.addWidget(self.create_select_all_button())
             layout_left.addWidget(self.create_select_none_button())
+            layout_left.addWidget(self.create_hide_installed_checkbox())
 
             spacer = QtWidgets.QSpacerItem(
                 20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
@@ -100,6 +101,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     # endregion
 
     # region UI - Table Operations
+    def create_hide_installed_checkbox(self):
+        hide_installed_checkbox = QtWidgets.QCheckBox("Hide Installed Files", self)
+        hide_installed_checkbox.stateChanged.connect(self.hide_install_state_changed)  # type: ignore
+        return hide_installed_checkbox
+
+    def hide_install_state_changed(self, checked: Qt.CheckState):
+        logger.info(f"Hiding Installed Files: {checked}")
+        self.refresh_data(checked == Qt.CheckState.Checked.value)
+
     def create_refresh_button(self):
         refresh_button = QtWidgets.QPushButton("Refresh", self)
         refresh_button.clicked.connect(self.refresh_data)  # type: ignore
@@ -139,8 +149,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._table_model.delete_selected()
         self.refresh_data()
 
-    def refresh_data(self):
-        self.__model.refresh()
+    def refresh_data(self, omit_installed: bool = False):
+        self.__model.refresh(omit_installed)
         self._table_model.init_data(self.__model.data, self.__model)
         self.resize_window()
 
@@ -193,7 +203,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         new_height = min(table_size.height() + padding, max_height)
 
         # Resize window to fit the table with the new height constraint
-        self.resize(table_size.width() + button_size.width() + padding, new_height)
+        self.resize(
+            table_size.width() + button_size.width() + (padding * 2), new_height
+        )
 
     def init(self):
         return True
