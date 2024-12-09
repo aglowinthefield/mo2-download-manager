@@ -1,12 +1,10 @@
 ﻿[MASTER]
-extension-pkg-whitelist=PyQt5.QtWidgets, PyQt6.QtWidgets
-    PyQt5.QtCore, PyQt6.QtCore
-    PyQt5.QtGui, PyQt6.QtGui
+extension-pkg-whitelist=PyQt5.QtWidgets, PyQt6.QtWidgets PyQt5.QtCore, PyQt6.QtCore PyQt5.QtGui, PyQt6.QtGui
 disable=import-error,
     broad-exception-caught,
     missing-module-docstring,
     missing-function-docstring,
     missing-class-docstring,
-    too-many-instance-attributes
+    too-many-instance-attributes,
     consider-using-from-import
 ignore-patterns=libs,venv
