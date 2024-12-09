@@ -6,14 +6,15 @@ from typing import List
 
 import mobase
 
+from .mo2_compat_utils import is_above_2_4
 from .util import logger
+from .download_entry import DownloadEntry
+
 
 try:
     from PyQt6.QtCore import QSettings
 except ImportError:
     from PyQt5.QtCore import QSettings
-
-from .download_entry import DownloadEntry
 
 
 def _hide_download(item: DownloadEntry):
@@ -53,7 +54,9 @@ class DownloadManagerModel:
             file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
             version = file_setting.value("version")
             installed = file_setting.value("installed") == "true"
-            raw_path = Path(normalized_path.removesuffix(".meta"))
+            raw_path = Path(
+                normalized_path[:-5]
+            )  # remove ".meta". removesuffix not supported in 3.9
             raw_meta_path = Path(normalized_path)
 
             # if not file_time.isValid():
@@ -86,7 +89,7 @@ class DownloadManagerModel:
         ]
         return files
 
-    def get_duplicates(self) -> set[DownloadEntry]:
+    def get_duplicates(self):
         dupes = set()
 
         grouped_by_name = defaultdict(list)
@@ -115,16 +118,25 @@ class DownloadManagerModel:
             Path.unlink(file_to_delete.raw_meta_path)
 
     @staticmethod
-    def bulk_hide(items: set[DownloadEntry]):
+    def bulk_hide(items):
         for entry in items:
             _hide_download(entry)
 
-    def bulk_install(self, items: set[DownloadEntry]):
+    def bulk_install(self, items):
         for mod in items:
             self.install_mod(mod)
 
     def install_mod(self, mod: DownloadEntry):
-        self.__organizer.installMod(mod.raw_file_path)
+        mo2_version = self.__organizer.appVersion().canonicalString()
+        print(f"Installing {mod.name} with MO2 API version {mo2_version}")
+        if is_above_2_4(mo2_version):
+            # mo2 v2.5.x
+            self.__organizer.installMod(
+                mod.raw_file_path,
+            )
+        else:
+            # mo2 v2.4.x
+            self.__organizer.installMod(str(mod.raw_file_path))
         _hide_download(mod)
 
     @property

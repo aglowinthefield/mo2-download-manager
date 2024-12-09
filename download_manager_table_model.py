@@ -4,6 +4,7 @@ from typing import List
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .util import logger
+from .mo2_compat_utils import get_qt_checked_value
 
 try:
     import PyQt6.QtCore as QtCore
@@ -49,7 +50,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _model: DownloadManagerModel = None
-    _selected: set[DownloadEntry] = set()
+    _selected = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Installed?")
@@ -113,7 +114,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def setData(self, index: QModelIndex, value, role=...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
-            selected = value == Qt.CheckState.Checked.value
+            selected = value == get_qt_checked_value(Qt.CheckState.Checked)
             selected_data = self._data[index.row()]
             (
                 self._selected.add(selected_data)

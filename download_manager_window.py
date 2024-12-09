@@ -1,5 +1,6 @@
 ﻿import mobase
 
+from .mo2_compat_utils import get_qt_checked_value
 from .download_manager_model import DownloadManagerModel
 from .download_manager_table_model import DownloadManagerTableModel
 
@@ -108,7 +109,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return hide_installed_checkbox
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
-        self.__omit_uninstalled = checked == Qt.CheckState.Checked.value
+        self.__omit_uninstalled = checked == get_qt_checked_value(Qt.CheckState.Checked)
         self.refresh_data()
 
     def create_refresh_button(self):
