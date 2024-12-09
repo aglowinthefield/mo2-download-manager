@@ -20,7 +20,7 @@ jobs:
         run: mkdir plugins 
           && cd plugins
           && mkdir mo2-download-manager
-          && cd ../..
+          && cd ..
           && cp *.py ./plugins/mo2-download-manager
           && cp libs ./plugins/mo2-download-manager
           && cp README.md ./plugins/mo2-download-manager
