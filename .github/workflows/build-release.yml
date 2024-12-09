@@ -1,0 +1,25 @@
+﻿name: Build Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.x
+      - name: Install Dependencies
+        run: pip install -r requirements.txt
+      - name: Zip Files
+        run: zip -r mo2-download-manager.zip *.py libs README.md
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: mo2-download-manager
+          path: mo2-download-manager.zip
