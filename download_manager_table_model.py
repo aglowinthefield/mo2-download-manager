@@ -95,18 +95,19 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         item = self._data[row]
         column = index.column()
 
-        if column == 0:
-            return self._first_column(role, item)
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            return _render_column(item, index)
-
+        # Decorative roles will go first to ensure they are applied evenly across columns
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             opacity_red = QColor(255, 0, 0, 77)  # Red with 30% opacity
             return opacity_red if item in self._selected else None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+        if column == 0:
+            return self._first_column(role, item)
+
+        if role == Qt.ItemDataRole.DisplayRole and column > 0:
+            return _render_column(item, index)
 
         return None
 
