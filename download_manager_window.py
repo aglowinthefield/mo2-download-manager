@@ -1,21 +1,16 @@
 ﻿import mobase
 
+from .download_manager_model import DownloadManagerModel
 from .download_manager_table_model import DownloadManagerTableModel
 
 try:
-    import PyQt6.QtCore as QtCore
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication, QSizePolicy
 except ImportError:
-    import PyQt5.QtCore as QtCore
-    import PyQt5.QtGui as QtGui
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
     from PyQt5.QtWidgets import QApplication, QSizePolicy
-
-
-from .download_manager_model import DownloadManagerModel
 
 
 def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):

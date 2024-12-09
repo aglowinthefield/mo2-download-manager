@@ -1,8 +1,6 @@
 ﻿from datetime import datetime
 from typing import List
 
-from PyQt6.QtGui import QColor
-
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .util import logger
@@ -10,11 +8,40 @@ from .util import logger
 try:
     import PyQt6.QtCore as QtCore
     from PyQt6.QtCore import Qt, QModelIndex
-    from PyQt6.QtWidgets import QApplication
+    from PyQt6.QtGui import QColor
 except ImportError:
     import PyQt5.QtCore as QtCore
     from PyQt5.QtCore import Qt, QModelIndex
-    from PyQt5.QtWidgets import QApplication
+    from PyQt5.QtGui import QColor
+
+
+def _render_column(item, index):
+    column = index.column()
+    if item is None:
+        logger.info(
+            "Received null item for row " + index.row() + " and column " + column
+        )
+        return None
+    columns = [
+        None,
+        item.modname,
+        item.filename,
+        item.filetime,
+        item.version,
+        item.installed,
+    ]
+    if column < len(columns):
+        column_value = columns[column]
+        if isinstance(column_value, QtCore.QDateTime):
+            if not column_value.isValid():
+                return None
+            string_date = column_value.toString("yyyy-MM-dd HH:mm:ss")
+            logger.info(string_date)
+            return string_date
+        if isinstance(column_value, datetime):
+            return column_value.strftime("%Y-%m-%d %H:%M:%S")
+        return columns[column]
+    return None
 
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
@@ -35,17 +62,33 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.notify_table_updated()
         self.layoutChanged.emit()
 
-    def headerData(self, section, orientation, role=...):
+    # pylint:disable=invalid-name
+    def headerData(self, section, _orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
             if section > len(self._header) - 1:
-                logger.error(f"Section out of bounds {section} {role}")
+                logger.error("Section out of bounds %s %s", section, role)
+                return None
             return self._header[section]
+        return None
 
-    def columnCount(self, parent=...):
+    # pylint:disable=invalid-name
+    def columnCount(self, _parent=...):
         return 6
 
-    def rowCount(self, parent=QtCore.QModelIndex()):
+    # pylint:disable=invalid-name
+    def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
+
+    def _first_column(self, role, item):
+        if role == Qt.ItemDataRole.CheckStateRole:
+            return (
+                Qt.CheckState.Checked
+                if item in self._selected
+                else Qt.CheckState.Unchecked
+            )
+        if role == Qt.ItemDataRole.DisplayRole:
+            return item.name
+        return None
 
     def data(self, index: QModelIndex, role: int = ...):
         row = index.row()
@@ -53,55 +96,19 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         column = index.column()
 
         if column == 0:
-            if role == Qt.ItemDataRole.CheckStateRole:
-                return (
-                    Qt.CheckState.Checked
-                    if item in self._selected
-                    else Qt.CheckState.Unchecked
-                )
-            if role == Qt.ItemDataRole.DisplayRole:
-                return item.name
+            return self._first_column(role, item)
 
-        if role == Qt.ItemDataRole.DisplayRole and column > 0:
-            if item is None:
-                logger.info(
-                    "Received null item for row "
-                    + index.row()
-                    + " and column "
-                    + column
-                )
-                return None
-            columns = [
-                None,
-                item.modname,
-                item.filename,
-                item.filetime,
-                item.version,
-                item.installed,
-            ]
-            if column < len(columns):
-                column_value = columns[column]
-                if isinstance(column_value, QtCore.QDateTime):
-                    if not column_value.isValid():
-                        return None
-                    string_date = column_value.toString("yyyy-MM-dd HH:mm:ss")
-                    logger.info(string_date)
-                    return string_date
-                if isinstance(column_value, datetime):
-                    return column_value.strftime("%Y-%m-%d %H:%M:%S")
-                return columns[column]
-            return None
+        if role == Qt.ItemDataRole.DisplayRole:
+            return _render_column(item, index)
 
-        elif role == QtCore.Qt.ItemDataRole.BackgroundRole:
-            # Set background color for selected rows
+        if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             opacity_red = QColor(255, 0, 0, 77)  # Red with 30% opacity
             return opacity_red if item in self._selected else None
-            # if self._selected[row]:  # Check if the row is selected
-            #     return opacity_red
-            # return None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+        return None
 
     def setData(self, index: QModelIndex, value, role=...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
@@ -118,6 +125,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def flags(self, index: QModelIndex):
         if not index.isValid():
+            # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
+            # pylint:disable=no-member
             return Qt.ItemFlag.NoItemFlags
 
         if index.column() == 0:

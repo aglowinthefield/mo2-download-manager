@@ -4,10 +4,8 @@ from .download_manager_window import DownloadManagerWindow
 
 try:
     import PyQt6.QtGui as QtGui
-    from PyQt6.QtWidgets import QApplication
 except ImportError:
     import PyQt5.QtGui as QtGui
-    from PyQt5.QtWidgets import QApplication
 
 
 class DownloadManagerPlugin(mobase.IPluginTool):
