@@ -15,9 +15,9 @@ Features include:
 
 ## Installing
 
-Download the .7z archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/) (I wrote this README for Nexus haha)
+Download the zip archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/) (I wrote this README for Nexus haha)
 
-Extract the `mo2-download-manager` folder into your MO2 plugins directory. You should have the structure `plugins/mo2-download-manager/__init__py`.
+Extract into the root of your MO2 install.
 
 ## Using
 
