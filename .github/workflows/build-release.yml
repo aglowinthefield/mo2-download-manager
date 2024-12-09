@@ -19,7 +19,7 @@ jobs:
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mo2-download-manager.zip
+          name: mo2-download-manager
           path: |
             *.py
             README.md
