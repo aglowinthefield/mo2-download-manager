@@ -114,6 +114,8 @@ class DownloadManagerModel:
             return
         if Path.is_file(file_to_delete.raw_file_path):
             Path.unlink(file_to_delete.raw_file_path)
+        if Path.is_file(file_to_delete.raw_meta_path):
+            Path.unlink(file_to_delete.raw_meta_path)
 
     @staticmethod
     def bulk_hide(items: set[DownloadEntry]):
