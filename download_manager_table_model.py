@@ -148,8 +148,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.layoutChanged.emit()
 
     def select_duplicates(self):
-        self._selected = self._model.get_duplicates()
-        self.notify_table_updated()
+        if self._model:
+            self._selected = self._model.get_duplicates()
+            self.notify_table_updated()
 
     def select_all(self):
         for item in self._data:
@@ -161,15 +162,18 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.notify_table_updated()
 
     def install_selected(self):
-        self._model.bulk_install(self._selected)
-        self.notify_table_updated()
+        if self._model:
+            self._model.bulk_install(self._selected)
+            self.notify_table_updated()
 
     def delete_selected(self):
-        for item in self._selected:
-            self._model.delete(item)
+        if self._model:
+            for item in self._selected:
+                self._model.delete(item)
 
     def hide_selected(self):
-        self._model.bulk_hide(self._selected)
+        if self._model:
+            self._model.bulk_hide(self._selected)
 
     def notify_table_updated(self):
         self.dataChanged.emit(
