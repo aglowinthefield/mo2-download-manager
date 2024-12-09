@@ -9,7 +9,7 @@ import mobase
 from .util import logger
 
 try:
-    from PyQt6.QtCore import QSettings, QDateTime, QVariant
+    from PyQt6.QtCore import QSettings
 except ImportError:
     from PyQt5.QtCore import QSettings
 
@@ -33,12 +33,12 @@ class DownloadManagerModel:
         self.__data = []
 
     def refresh(self, omit_installed: bool = False):
-        self.__files = self.collectMetaFiles()
-        self.readMetaFiles()
+        self.__files = self.collect_meta_files()
+        self.read_meta_files()
         if omit_installed:
             self.__data = [d for d in self.__data if not d.installed]
 
-    def readMetaFiles(self):
+    def read_meta_files(self):
         self.__data = []
         for f in self.__files:
             normalized_path = os.path.normpath(f)
@@ -62,7 +62,7 @@ class DownloadManagerModel:
                 print(f"Empty meta found for: {normalized_path}")
                 continue
 
-            # TODO: Do we want to try semver parsing here? Most mods don't have valid semver strings
+            # Do we want to try semver parsing here? Most mods don't have valid semver strings
             file_dl_entry = DownloadEntry(
                 name,
                 mod_name,
@@ -77,17 +77,14 @@ class DownloadManagerModel:
 
         self.__data.sort(key=lambda x: (x.modname or x.filename, x.version, x.filetime))
 
-    def collectMetaFiles(self):
-        directory_path = Path(self.getDownloadsPath())
+    def collect_meta_files(self):
+        directory_path = Path(self.__organizer.downloadsPath())
         files = [
             str(f)
             for f in directory_path.glob("*.meta")
             if f.is_file() and not f.stem.endswith("unfinished")
         ]
         return files
-
-    def getDownloadsPath(self):
-        return self.__organizer.downloadsPath()
 
     def get_duplicates(self) -> set[DownloadEntry]:
         dupes = set()
@@ -99,7 +96,7 @@ class DownloadManagerModel:
 
         logger.info(grouped_by_name)
 
-        for key, value in grouped_by_name.items():
+        for _, value in grouped_by_name.items():
             if len(value) > 1:
                 dupes.update(
                     sorted([dl for dl in value if dl.version], key=lambda x: x.version)[

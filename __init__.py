@@ -1,4 +1,5 @@
-﻿import os
+﻿# pylint:disable=invalid-name
+import os
 import sys
 
 from .download_manager_plugin import DownloadManagerPlugin
@@ -21,6 +22,8 @@ except Exception:
     pass
 
 
+# pylint:disable=invalid-name
 def createPlugin():
+    """MO2 init fn. Cant be snake case."""
     create_logger()
     return DownloadManagerPlugin()

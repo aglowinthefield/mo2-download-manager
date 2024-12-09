@@ -1,9 +1,9 @@
-﻿from .download_manager_table_model import DownloadManagerTableModel
-from .util import logger
+﻿import mobase
+
+from .download_manager_table_model import DownloadManagerTableModel
 
 try:
     import PyQt6.QtCore as QtCore
-    import PyQt6.QtGui as QtGui
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication, QSizePolicy
@@ -14,7 +14,6 @@ except ImportError:
     from PyQt5.QtCore import Qt
     from PyQt5.QtWidgets import QApplication, QSizePolicy
 
-import mobase
 
 from .download_manager_model import DownloadManagerModel
 
@@ -37,7 +36,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         self.__omit_uninstalled = False
         try:
-            self.__organizer = organizer
             self.__model = DownloadManagerModel(organizer)
             super().__init__(parent)
 
@@ -115,7 +113,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return hide_installed_checkbox
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
-        logger.info(f"Hiding Installed Files: {checked}")
         self.__omit_uninstalled = checked == Qt.CheckState.Checked.value
         self.refresh_data()
 
@@ -220,5 +217,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             table_size.width() + button_size.width() + (padding * 2), new_height
         )
 
-    def init(self):
+    @staticmethod
+    def init():
+        """MO2 requires this fn be present for QDialog."""
         return True

@@ -20,8 +20,6 @@ class DownloadManagerPlugin(mobase.IPluginTool):
     def __init__(self):
         super().__init__()
         self.__window = None
-        self.__organizer = None
-        self.__parentWidget = None
 
     def init(self, organizer: mobase.IOrganizer):
         self.__organizer = organizer
@@ -33,6 +31,7 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         self.__window.setWindowTitle(f"{self.NAME} v{self.version().displayString()}")
         self.__window.exec()
 
+    # pylint:disable=invalid-name
     def displayName(self):
         return self.NAME
 
