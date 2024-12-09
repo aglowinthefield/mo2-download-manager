@@ -15,7 +15,7 @@ Features include:
 
 ## Installing
 
-Download the .7z archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/)
+Download the .7z archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/) (I wrote this README for Nexus haha)
 
 Extract the `mo2-download-manager` folder into your MO2 plugins directory.
 
