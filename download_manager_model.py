@@ -58,6 +58,7 @@ class DownloadManagerModel:
                 normalized_path[:-5]
             )  # remove ".meta". removesuffix not supported in 3.9
             raw_meta_path = Path(normalized_path)
+            file_size = raw_path.stat().st_size
 
             # if not file_time.isValid():
             #     logger.info("Invalid QDateTime " + str(file_time))
@@ -75,6 +76,7 @@ class DownloadManagerModel:
                 installed,
                 raw_path,
                 raw_meta_path,
+                file_size,
             )
             self.__data.append(file_dl_entry)
 

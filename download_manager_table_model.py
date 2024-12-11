@@ -3,7 +3,7 @@ from typing import List
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from .util import logger
+from .util import logger, sizeof_fmt
 from .mo2_compat_utils import get_qt_checked_value
 
 try:
@@ -16,36 +16,19 @@ except ImportError:
     from PyQt5.QtGui import QColor
 
 
-def _render_column(item, index):
-    column = index.column()
-    if item is None:
-        logger.info(
-            "Received null item for row " + index.row() + " and column " + column
-        )
-        return None
-    columns = [
-        None,
-        item.modname,
-        item.filename,
-        item.filetime,
-        item.version,
-        item.installed,
-    ]
-    if column < len(columns):
-        column_value = columns[column]
-        if isinstance(column_value, QtCore.QDateTime):
-            if not column_value.isValid():
-                return None
-            string_date = column_value.toString("yyyy-MM-dd HH:mm:ss")
-            logger.info(string_date)
-            return string_date
-        if isinstance(column_value, datetime):
-            return column_value.strftime("%Y-%m-%d %H:%M:%S")
-        return columns[column]
-    return None
 
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
+
+    COLUMN_MAPPING = {
+        0: lambda item: item.name,
+        1: lambda item: item.modname,
+        2: lambda item: item.filename,
+        3: lambda item: item.filetime,
+        4: lambda item: item.version,
+        5: lambda item: item.file_size,
+        6: lambda item: item.installed,
+    }
 
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
@@ -53,8 +36,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _selected = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Installed?")
-    _columnFields = ["name", "modname", "filename", "filetime", "version", "installed"]
+    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
+    _columnFields = ["name", "modname", "filename", "filetime", "version", "file_size", "installed"]
 
     def init_data(self, data: List[DownloadEntry], model: DownloadManagerModel):
         self._data = data
@@ -74,27 +57,37 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     # pylint:disable=invalid-name
     def columnCount(self, _parent=...):
-        return 6
+        return 7
 
     # pylint:disable=invalid-name
     def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
 
-    def _first_column(self, role, item):
-        if role == Qt.ItemDataRole.CheckStateRole:
-            return (
-                Qt.CheckState.Checked
-                if item in self._selected
-                else Qt.CheckState.Unchecked
+
+    def _render_column(self, item, index):
+        if item is None:
+            logger.info(
+                "Received null item for row " + index.row() + " and column " + index.column()
             )
-        if role == Qt.ItemDataRole.DisplayRole:
-            return item.name
-        return None
+            return None
+
+        column = index.column()
+        get_value = self.COLUMN_MAPPING.get(column)
+
+        if get_value is None:
+            return None
+
+        column_value = get_value(item)
+
+        if isinstance(column_value, (int, float)):
+            return sizeof_fmt(column_value)
+        if isinstance(column_value, datetime):
+            return column_value.strftime("%Y-%m-%d %H:%M:%S")
+        return column_value
 
     def data(self, index: QModelIndex, role: int = ...):
         row = index.row()
         item = self._data[row]
-        column = index.column()
 
         # Decorative roles will go first to ensure they are applied evenly across columns
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
@@ -104,11 +97,15 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
 
-        if column == 0:
-            return self._first_column(role, item)
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+            return (
+                Qt.CheckState.Checked
+                if item in self._selected
+                else Qt.CheckState.Unchecked
+            )
 
-        if role == Qt.ItemDataRole.DisplayRole and column > 0:
-            return _render_column(item, index)
+        if role == Qt.ItemDataRole.DisplayRole:
+            return self._render_column(item, index)
 
         return None
 
@@ -143,7 +140,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def sort(self, column, order=...):
         self.layoutAboutToBeChanged.emit()
         self._data.sort(
-            key=lambda row: str(row[self._columnFields[column]]).lower(),
+            key=lambda row: (float(row[self._columnFields[column]])
+                         if isinstance(row[self._columnFields[column]], (int, float))
+                         else str(row[self._columnFields[column]]).lower()),
             reverse=(order == Qt.SortOrder.DescendingOrder),
         )
         self.layoutChanged.emit()
