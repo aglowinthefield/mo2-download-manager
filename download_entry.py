@@ -21,3 +21,4 @@ class DownloadEntry(DictMixin):
     installed: bool
     raw_file_path: Path
     raw_meta_path: Path
+    file_size: float
