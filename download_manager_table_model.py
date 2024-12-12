@@ -1,6 +1,8 @@
 ﻿from datetime import datetime
 from typing import List
 
+import mobase
+
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .util import logger, sizeof_fmt
@@ -14,9 +16,6 @@ except ImportError:
     import PyQt5.QtCore as QtCore
     from PyQt5.QtCore import Qt, QModelIndex
     from PyQt5.QtGui import QColor
-
-
-
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
@@ -39,9 +38,12 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
     _columnFields = ["name", "modname", "filename", "filetime", "version", "file_size", "installed"]
 
-    def init_data(self, data: List[DownloadEntry], model: DownloadManagerModel):
+    def __init__(self, organizer: mobase.IOrganizer):
+        super().__init__()
+        self._model = DownloadManagerModel(organizer)
+
+    def init_data(self, data: List[DownloadEntry]):
         self._data = data
-        self._model = model
         self._selected.clear()
         self.notify_table_updated()
         self.layoutChanged.emit()
@@ -79,7 +81,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         column_value = get_value(item)
 
-        if isinstance(column_value, (int, float)):
+        if column == 5:
             return sizeof_fmt(column_value)
         if isinstance(column_value, datetime):
             return column_value.strftime("%Y-%m-%d %H:%M:%S")
@@ -174,6 +176,11 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def hide_selected(self):
         if self._model:
             self._model.bulk_hide(self._selected)
+
+    def refresh(self, omit_uninstalled):
+        self._model.refresh(omit_uninstalled)
+        self._data = self._model.data
+        self.init_data(self._data)
 
     def notify_table_updated(self):
         self.dataChanged.emit(
