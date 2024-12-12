@@ -1,7 +1,6 @@
 ﻿import mobase
 
 from .mo2_compat_utils import get_qt_checked_value
-from .download_manager_model import DownloadManagerModel
 from .download_manager_table_model import DownloadManagerTableModel
 
 try:
