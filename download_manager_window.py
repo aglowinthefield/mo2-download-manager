@@ -1,13 +1,12 @@
 ﻿import mobase
 
 from .mo2_compat_utils import get_qt_checked_value
-from .download_manager_model import DownloadManagerModel
 from .download_manager_table_model import DownloadManagerTableModel
 
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication, QSizePolicy
+    from PyQt6.QtWidgets import QApplication, QSizePolicy, QHeaderView
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
@@ -26,16 +25,14 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class DownloadManagerWindow(QtWidgets.QDialog):
 
-    __model: DownloadManagerModel = None
     __omit_uninstalled: bool = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         self.__omit_uninstalled = False
         try:
-            self.__model = DownloadManagerModel(organizer)
             super().__init__(parent)
 
-            self._table_model = DownloadManagerTableModel()
+            self._table_model = DownloadManagerTableModel(organizer)
             self._table_widget = self.create_table_widget()
 
             main_layout = QtWidgets.QHBoxLayout()
@@ -156,9 +153,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
-        self.__model.refresh(self.__omit_uninstalled)
-        self._table_model.init_data(self.__model.data, self.__model)
+        self._table_model.refresh(self.__omit_uninstalled)
         self.resize_window()
+        self.reapply_sort()
+
+    def reapply_sort(self):
+        header = self._table_widget.horizontalHeader()
+        current_sort_col = header.sortIndicatorSection()
+        current_sort_order = header.sortIndicatorOrder()
+        self._table_model.sort(current_sort_col, current_sort_order)
 
     def create_table_widget(self):
         table = QtWidgets.QTableView()
@@ -166,15 +169,14 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.verticalHeader().setVisible(False)
         table.setAlternatingRowColors(True)
         table.setSortingEnabled(True)
-        table.setSizeAdjustPolicy(
-            QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
-        )
-        table.setShowGrid(True)
+        table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+        table.setShowGrid(False)
         table.setSelectionBehavior(
             QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
         )
         table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
         table.setMouseTracking(True)
+        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         return table
 
     def resize_window(self):

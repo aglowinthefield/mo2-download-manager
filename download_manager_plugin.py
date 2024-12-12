@@ -1,5 +1,6 @@
 ﻿import mobase
 
+from .util import logger
 from .download_manager_window import DownloadManagerWindow
 
 try:
@@ -17,6 +18,7 @@ class DownloadManagerPlugin(mobase.IPluginTool):
 
     def __init__(self):
         super().__init__()
+        logger.info("DownloadManagerPlugin.__init__")
         self.__window = None
 
     def init(self, organizer: mobase.IOrganizer):

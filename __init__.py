@@ -18,8 +18,10 @@ try:
         stderrToServer=True,
         suspend=True,
     )
-except Exception:
-    pass
+    print("Debugger started")
+except ImportError:
+    print("Debugger failed to start!")
+    print(Exception)
 
 
 # pylint:disable=invalid-name
