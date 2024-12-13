@@ -1,4 +1,5 @@
 ﻿import os.path
+from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -55,6 +56,15 @@ def _meta_to_download_entry(normalized_path):
     )
 
 
+def _process_file(path):
+    normalized_path = os.path.normpath(path)
+    if not os.path.exists(normalized_path):
+        print(f"File not found: {normalized_path}")
+        return None
+
+    return _meta_to_download_entry(normalized_path)
+
+
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
@@ -74,13 +84,17 @@ class DownloadManagerModel:
 
     def read_meta_files(self):
         self.__data = []
-        for f in self.__files:
-            normalized_path = os.path.normpath(f)
-            if not os.path.exists(normalized_path):
-                print(f"File not found: {normalized_path}")
+        with ThreadPoolExecutor() as executor:
+            futures = []
+            for f in self.__files:
+                futures.append(executor.submit(_process_file, f))
 
-            entry = _meta_to_download_entry(normalized_path)
-            self.__data.append(entry) if entry else None
+            for future in futures:
+                entry = future.result()
+                if entry:
+                    self.__data.append(entry)
+                else:
+                    logger.info("Entry broken. Should not happen.")
 
     def collect_meta_files(self):
         directory_path = Path(self.__organizer.downloadsPath())

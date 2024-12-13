@@ -156,9 +156,11 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
+        self.setUpdatesEnabled(False)
         self._table_model.refresh()
         self.resize_window()
         self.reapply_sort()
+        self.setUpdatesEnabled(True)
 
     def reapply_sort(self):
         if not self.__initialized:
