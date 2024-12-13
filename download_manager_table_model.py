@@ -67,7 +67,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
 
-
     def _render_column(self, item, index):
         if item is None:
             logger.info(
@@ -149,6 +148,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             reverse=(order == Qt.SortOrder.DescendingOrder),
         )
         self.layoutChanged.emit()
+
+    def get_selected(self):
+        return self._selected
 
     def select_duplicates(self):
         if self._model:

@@ -54,9 +54,13 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
             layout_left.addItem(spacer)
 
-            layout_left.addWidget(self.create_install_button())
-            layout_left.addWidget(self.create_hide_button())
-            layout_left.addWidget(self.create_delete_button())
+            self._install_button = self.create_install_button()
+            self._hide_button    = self.create_hide_button()
+            self._delete_button  = self.create_delete_button()
+
+            layout_left.addWidget(self._install_button)
+            layout_left.addWidget(self._hide_button)
+            layout_left.addWidget(self._delete_button)
 
             # This area should have the operations for the selected elements
             self._wrapper_left.setLayout(layout_left)
@@ -75,6 +79,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             self.setLayout(main_layout)
             self.setMinimumSize(1024, 768)
+
+            self._table_model.dataChanged.connect(self.update_button_states)
 
         except Exception as ex:
             show_error(
@@ -108,23 +114,26 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return button_with_handler("Refresh", self, self.refresh_data)
 
     def create_select_duplicates_button(self):
-        return button_with_handler("Select Old Duplicates", self, self.select_duplicates)
+        return button_with_handler("Select Old Duplicates", self, self._table_model.select_duplicates)
 
     def create_select_all_button(self):
-        return button_with_handler("Select All", self, self.select_all)
+        return button_with_handler("Select All", self, self._table_model.select_all)
 
     def create_select_none_button(self):
-        return button_with_handler("Select None", self, self.select_none)
+        return button_with_handler("Select None", self, self._table_model.select_none)
     # endregion
 
-    def select_all(self):
-        return self._table_model.select_all()
+    # region UI change handler
+    def update_button_states(self):
+        selected = self._table_model.get_selected()
+        self._toggle_button_operations(len(selected) > 0)
 
-    def select_none(self):
-        return self._table_model.select_none()
+    def _toggle_button_operations(self, enabled):
+        self._hide_button.setEnabled(enabled)
+        self._delete_button.setEnabled(enabled)
+        self._install_button.setEnabled(enabled)
 
-    def select_duplicates(self):
-        return self._table_model.select_duplicates()
+    # endregion
 
     def install_selected(self):
         self._table_model.install_selected()
