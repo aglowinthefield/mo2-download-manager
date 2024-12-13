@@ -23,6 +23,38 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
+def _meta_to_download_entry(normalized_path):
+    file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
+
+    # file_time: QVariant = file_setting.value("fileTime")
+    name            = file_setting.value("name")
+    mod_name        = file_setting.value("modName")
+    file_name       = os.path.basename(normalized_path)
+    file_time       = datetime.fromtimestamp(os.path.getmtime(normalized_path))
+    version         = file_setting.value("version")
+    installed       = file_setting.value("installed") == "true"
+    raw_path        = Path(normalized_path[:-5])  # remove ".meta". removesuffix not supported in 3.9
+    raw_meta_path   = Path(normalized_path)
+    file_size       = raw_path.stat().st_size
+
+    if mod_name is None and file_name is None:
+        print(f"Empty meta found for: {normalized_path}")
+        return None
+
+    # Do we want to try semver parsing here? Most mods don't have valid semver strings
+    return DownloadEntry(
+        name,
+        mod_name,
+        str(file_name),
+        file_time,
+        version,
+        installed,
+        raw_path,
+        raw_meta_path,
+        file_size,
+    )
+
+
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
@@ -45,42 +77,9 @@ class DownloadManagerModel:
             normalized_path = os.path.normpath(f)
             if not os.path.exists(normalized_path):
                 print(f"File not found: {normalized_path}")
-            file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
 
-            name = file_setting.value("name")
-            mod_name = file_setting.value("modName")
-            file_name = os.path.basename(normalized_path)
-            # file_time: QVariant = file_setting.value("fileTime")
-            file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
-            version = file_setting.value("version")
-            installed = file_setting.value("installed") == "true"
-            raw_path = Path(
-                normalized_path[:-5]
-            )  # remove ".meta". removesuffix not supported in 3.9
-            raw_meta_path = Path(normalized_path)
-            file_size = raw_path.stat().st_size
-
-            # if not file_time.isValid():
-            #     logger.info("Invalid QDateTime " + str(file_time))
-            if mod_name is None and file_name is None:
-                print(f"Empty meta found for: {normalized_path}")
-                continue
-
-            # Do we want to try semver parsing here? Most mods don't have valid semver strings
-            file_dl_entry = DownloadEntry(
-                name,
-                mod_name,
-                file_name,
-                file_time,
-                version,
-                installed,
-                raw_path,
-                raw_meta_path,
-                file_size,
-            )
-            self.__data.append(file_dl_entry)
-
-        self.__data.sort(key=lambda x: (x.modname or x.filename, x.version, x.filetime))
+            entry = _meta_to_download_entry(normalized_path)
+            self.__data.append(entry) if entry else None
 
     def collect_meta_files(self):
         directory_path = Path(self.__organizer.downloadsPath())

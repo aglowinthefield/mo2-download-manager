@@ -19,9 +19,8 @@ try:
         suspend=True,
     )
     print("Debugger started")
-except ImportError:
-    print("Debugger failed to start!")
-    print(Exception)
+except Exception:
+    pass
 
 
 # pylint:disable=invalid-name

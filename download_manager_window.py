@@ -26,6 +26,7 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 class DownloadManagerWindow(QtWidgets.QDialog):
 
     __omit_uninstalled: bool = False
+    __initialized: bool = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         self.__omit_uninstalled = False
@@ -158,6 +159,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.reapply_sort()
 
     def reapply_sort(self):
+        if not self.__initialized:
+            return
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()

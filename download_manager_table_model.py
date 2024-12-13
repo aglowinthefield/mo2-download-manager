@@ -19,6 +19,8 @@ except ImportError:
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
+    SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
+
     COLUMN_MAPPING = {
         0: lambda item: item.name,
         1: lambda item: item.modname,
@@ -93,8 +95,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         # Decorative roles will go first to ensure they are applied evenly across columns
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
-            opacity_red = QColor(255, 0, 0, 77)  # Red with 30% opacity
-            return opacity_red if item in self._selected else None
+            return self.SELECTED_ROW_COLOR if item in self._selected else None
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
