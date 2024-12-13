@@ -2,11 +2,12 @@
 
 from .mo2_compat_utils import get_qt_checked_value
 from .download_manager_table_model import DownloadManagerTableModel
+from .ui_statics import create_basic_table_widget, button_with_handler
 
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication, QSizePolicy, QHeaderView
+    from PyQt6.QtWidgets import QApplication, QSizePolicy
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
@@ -84,20 +85,13 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     # region UI - Download Operations
     def create_delete_button(self):
-        delete_button = QtWidgets.QPushButton("Delete Selected", self)
-        delete_button.clicked.connect(self.delete_selected)  # type: ignore
-        return delete_button
+        return button_with_handler("Delete Selected", self, self.delete_selected)
 
     def create_install_button(self):
-        install_button = QtWidgets.QPushButton("Install Selected", self)
-        install_button.clicked.connect(self.install_selected)  # type: ignore
-        return install_button
+        return button_with_handler("Install Selected", self, self.install_selected)
 
     def create_hide_button(self):
-        hide_button = QtWidgets.QPushButton("Mark Hidden", self)
-        hide_button.clicked.connect(self.hide_selected)  # type: ignore
-        return hide_button
-
+        return button_with_handler("Mark Hidden", self, self.hide_selected)
     # endregion
 
     # region UI - Table Operations
@@ -111,25 +105,16 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def create_refresh_button(self):
-        refresh_button = QtWidgets.QPushButton("Refresh", self)
-        refresh_button.clicked.connect(self.refresh_data)  # type: ignore
-        return refresh_button
+        return button_with_handler("Refresh", self, self.refresh_data)
 
     def create_select_duplicates_button(self):
-        select_duplicates_button = QtWidgets.QPushButton("Select Old Duplicates", self)
-        select_duplicates_button.clicked.connect(self.select_duplicates)  # type: ignore
-        return select_duplicates_button
+        return button_with_handler("Select Old Duplicates", self, self.select_duplicates)
 
     def create_select_all_button(self):
-        select_all_button = QtWidgets.QPushButton("Select All", self)
-        select_all_button.clicked.connect(self.select_all)  # type: ignore
-        return select_all_button
+        return button_with_handler("Select All", self, self.select_all)
 
     def create_select_none_button(self):
-        select_none_button = QtWidgets.QPushButton("Select None", self)
-        select_none_button.clicked.connect(self.select_none)  # type: ignore
-        return select_none_button
-
+        return button_with_handler("Select None", self, self.select_none)
     # endregion
 
     def select_all(self):
@@ -167,19 +152,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._table_model.sort(current_sort_col, current_sort_order)
 
     def create_table_widget(self):
-        table = QtWidgets.QTableView()
+        table = create_basic_table_widget()
         table.setModel(self._table_model)
-        table.verticalHeader().setVisible(False)
-        table.setAlternatingRowColors(True)
-        table.setSortingEnabled(True)
-        table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
-        table.setShowGrid(False)
-        table.setSelectionBehavior(
-            QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows
-        )
-        table.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.SelectedClicked)
-        table.setMouseTracking(True)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         return table
 
     def resize_window(self):
