@@ -58,18 +58,19 @@ def _meta_to_download_entry(normalized_path):
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
+    __data_no_installed: List[DownloadEntry]
 
     __files: List[str] = []
 
     def __init__(self, organizer: mobase.IOrganizer):
         self.__organizer = organizer
         self.__data = []
+        self.__data_no_installed = []
 
-    def refresh(self, omit_installed: bool = False):
+    def refresh(self):
         self.__files = self.collect_meta_files()
         self.read_meta_files()
-        if omit_installed:
-            self.__data = [d for d in self.__data if not d.installed]
+        self.__data_no_installed = [d for d in self.__data if not d.installed]
 
     def read_meta_files(self):
         self.__data = []
@@ -143,3 +144,7 @@ class DownloadManagerModel:
     @property
     def data(self):
         return self.__data
+
+    @property
+    def data_no_installed(self):
+        return self.__data_no_installed

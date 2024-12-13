@@ -32,11 +32,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         "HIDE": lambda count: f"Mark Hidden ({count})"
     }
 
-    __omit_uninstalled: bool = False
     __initialized: bool = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
-        self.__omit_uninstalled = False
         try:
             super().__init__(parent)
 
@@ -113,8 +111,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return hide_installed_checkbox
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
-        self.__omit_uninstalled = checked == get_qt_checked_value(Qt.CheckState.Checked)
-        self.refresh_data()
+        self._table_model.toggle_show_installed(checked == get_qt_checked_value(Qt.CheckState.Checked))
 
     def create_refresh_button(self):
         return button_with_handler("Refresh", self, self.refresh_data)
@@ -159,7 +156,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
-        self._table_model.refresh(self.__omit_uninstalled)
+        self._table_model.refresh()
         self.resize_window()
         self.reapply_sort()
 

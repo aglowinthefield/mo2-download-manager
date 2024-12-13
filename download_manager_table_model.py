@@ -180,8 +180,15 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if self._model:
             self._model.bulk_hide(self._selected)
 
-    def refresh(self, omit_uninstalled):
-        self._model.refresh(omit_uninstalled)
+    def toggle_show_installed(self, show_installed: bool):
+        if show_installed:
+            self._data = self._model.data_no_installed
+        else:
+            self._data = self._model.data
+        self.notify_table_updated()
+
+    def refresh(self):
+        self._model.refresh()
         self._data = self._model.data
         self.init_data(self._data)
 
