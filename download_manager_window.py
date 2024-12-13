@@ -26,6 +26,12 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class DownloadManagerWindow(QtWidgets.QDialog):
 
+    BUTTON_TEXT = {
+        "INSTALL": lambda count: f"Install Selected ({count})",
+        "DELETE": lambda count: f"Delete Selected ({count})",
+        "HIDE": lambda count: f"Mark Hidden ({count})"
+    }
+
     __omit_uninstalled: bool = False
     __initialized: bool = False
 
@@ -126,12 +132,17 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     # region UI change handler
     def update_button_states(self):
         selected = self._table_model.get_selected()
-        self._toggle_button_operations(len(selected) > 0)
+        self._toggle_button_operations(len(selected))
 
-    def _toggle_button_operations(self, enabled):
-        self._hide_button.setEnabled(enabled)
-        self._delete_button.setEnabled(enabled)
-        self._install_button.setEnabled(enabled)
+    def _toggle_button_operations(self, selected_count):
+        self._hide_button.setEnabled(selected_count > 0)
+        self._delete_button.setEnabled(selected_count > 0)
+        self._install_button.setEnabled(selected_count > 0)
+
+        self._hide_button.setText(self.BUTTON_TEXT["HIDE"](selected_count))
+        self._delete_button.setText(self.BUTTON_TEXT["DELETE"](selected_count))
+        self._install_button.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
+
 
     # endregion
 
