@@ -51,7 +51,9 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         return self.NAME
 
     def settings(self):
-        return []
+        return [
+            mobase.PluginSetting("nexusApiKey", "Nexus API Key", "")
+        ]
 
     def version(self):
         return mobase.VersionInfo(1, 0, 0)
