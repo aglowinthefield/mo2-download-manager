@@ -24,35 +24,52 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
-def _meta_to_download_entry(normalized_path):
-    file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
+def _file_path_to_download_entry(normalized_path):
+    meta_path = normalized_path + ".meta"
+
+    if not os.path.exists(meta_path):
+        return _file_path_to_stub(normalized_path)
+
+    file_setting = QSettings(meta_path, QSettings.Format.IniFormat)
 
     # file_time: QVariant = file_setting.value("fileTime")
     name            = file_setting.value("name")
     mod_name        = file_setting.value("modName")
-    file_name       = os.path.basename(normalized_path)
+    file_name       = os.path.basename(meta_path)
     file_time       = datetime.fromtimestamp(os.path.getmtime(normalized_path))
     version         = file_setting.value("version")
     installed       = file_setting.value("installed") == "true"
-    raw_path        = Path(normalized_path[:-5])  # remove ".meta". removesuffix not supported in 3.9
-    raw_meta_path   = Path(normalized_path)
+    raw_path        = Path(meta_path[:-5])
+    raw_meta_path   = Path(meta_path)
     file_size       = raw_path.stat().st_size
 
     if mod_name is None and file_name is None:
         print(f"Empty meta found for: {normalized_path}")
         return None
 
-    # Do we want to try semver parsing here? Most mods don't have valid semver strings
     return DownloadEntry(
-        name,
-        mod_name,
-        str(file_name),
-        file_time,
-        version,
-        installed,
-        raw_path,
-        raw_meta_path,
-        file_size,
+        name=name,
+        modname=mod_name,
+        filename=str(file_name),
+        filetime=file_time,
+        version=version,
+        installed=installed,
+        raw_file_path=raw_path,
+        raw_meta_path=raw_meta_path,
+        file_size=file_size,
+    )
+
+def _file_path_to_stub(normalized_path):
+    return DownloadEntry(
+        name="",
+        modname="",
+        filename=str(os.path.basename(normalized_path)),
+        filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
+        version="",
+        installed=False,
+        raw_file_path=Path(normalized_path),
+        raw_meta_path=None,
+        file_size=normalized_path.stat().st_size,
     )
 
 
@@ -62,7 +79,7 @@ def _process_file(path):
         print(f"File not found: {normalized_path}")
         return None
 
-    return _meta_to_download_entry(normalized_path)
+    return _file_path_to_download_entry(normalized_path)
 
 
 class DownloadManagerModel:
@@ -78,11 +95,11 @@ class DownloadManagerModel:
         self.__data_no_installed = []
 
     def refresh(self):
-        self.__files = self.collect_meta_files()
-        self.read_meta_files()
+        self.__files = self.collect_archive_files()
+        self._read_meta_files()
         self.__data_no_installed = [d for d in self.__data if not d.installed]
 
-    def read_meta_files(self):
+    def _read_meta_files(self):
         self.__data = []
         with ThreadPoolExecutor() as executor:
             futures = []
@@ -96,11 +113,13 @@ class DownloadManagerModel:
                 else:
                     logger.info("Entry broken. Should not happen.")
 
-    def collect_meta_files(self):
+    def collect_archive_files(self):
         directory_path = Path(self.__organizer.downloadsPath())
+        extensions = ["*.zip", "*.7z", "*.rar", "*.7zip"]
         files = [
             str(f)
-            for f in directory_path.glob("*.meta")
+            for ext in extensions
+            for f in directory_path.glob(ext)
             if f.is_file() and not f.stem.endswith("unfinished")
         ]
         return files
