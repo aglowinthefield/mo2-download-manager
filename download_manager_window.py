@@ -1,7 +1,7 @@
 ﻿import mobase
 
-from .mo2_compat_utils import get_qt_checked_value
 from .download_manager_table_model import DownloadManagerTableModel
+from .mo2_compat_utils import get_qt_checked_value
 from .ui_statics import create_basic_table_widget, button_with_handler
 
 try:
@@ -29,7 +29,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     BUTTON_TEXT = {
         "INSTALL": lambda count: f"Install Selected ({count})",
         "DELETE": lambda count: f"Delete Selected ({count})",
-        "HIDE": lambda count: f"Mark Hidden ({count})"
+        "HIDE": lambda count: f"Mark Hidden ({count})",
     }
 
     __initialized: bool = False
@@ -41,7 +41,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._table_model = DownloadManagerTableModel(organizer)
             self._table_widget = self.create_table_widget()
 
-            main_layout = QtWidgets.QHBoxLayout()
+            self._main_layout = QtWidgets.QHBoxLayout()
 
             self._wrapper_left = QtWidgets.QWidget()
 
@@ -59,8 +59,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_left.addItem(spacer)
 
             self._install_button = self.create_install_button()
-            self._hide_button    = self.create_hide_button()
-            self._delete_button  = self.create_delete_button()
+            self._hide_button = self.create_hide_button()
+            self._delete_button = self.create_delete_button()
 
             layout_left.addWidget(self._install_button)
             layout_left.addWidget(self._hide_button)
@@ -74,14 +74,14 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
 
-            main_layout.addWidget(self._wrapper_left)
-            main_layout.addWidget(self._wrapper_right)
+            self._main_layout.addWidget(self._wrapper_left)
+            self._main_layout.addWidget(self._wrapper_right)
 
             # Dimensions / ratios
-            main_layout.setStretch(0, 1)  # Buttons
-            main_layout.setStretch(1, 6)  # Table
+            self._main_layout.setStretch(0, 1)  # Buttons
+            self._main_layout.setStretch(1, 6)  # Table
 
-            self.setLayout(main_layout)
+            self.setLayout(self._main_layout)
             self.setMinimumSize(1024, 768)
 
             self._table_model.dataChanged.connect(self.update_button_states)
@@ -102,6 +102,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def create_hide_button(self):
         return button_with_handler("Mark Hidden", self, self.hide_selected)
+
     # endregion
 
     # region UI - Table Operations
@@ -111,19 +112,24 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return hide_installed_checkbox
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
-        self._table_model.toggle_show_installed(checked == get_qt_checked_value(Qt.CheckState.Checked))
+        self._table_model.toggle_show_installed(
+            checked == get_qt_checked_value(Qt.CheckState.Checked)
+        )
 
     def create_refresh_button(self):
         return button_with_handler("Refresh", self, self.refresh_data)
 
     def create_select_duplicates_button(self):
-        return button_with_handler("Select Old Duplicates", self, self._table_model.select_duplicates)
+        return button_with_handler(
+            "Select Old Duplicates", self, self._table_model.select_duplicates
+        )
 
     def create_select_all_button(self):
         return button_with_handler("Select All", self, self._table_model.select_all)
 
     def create_select_none_button(self):
         return button_with_handler("Select None", self, self._table_model.select_none)
+
     # endregion
 
     # region UI change handler
@@ -139,7 +145,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._hide_button.setText(self.BUTTON_TEXT["HIDE"](selected_count))
         self._delete_button.setText(self.BUTTON_TEXT["DELETE"](selected_count))
         self._install_button.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
-
 
     # endregion
 
@@ -187,7 +192,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         header = self._table_widget.horizontalHeader()
         for column in range(self._table_widget.model().columnCount()):
             header.setSectionResizeMode(column, resize_mode)
-            actual_width = header.sectionSize(column)
+
+            header_width = header.sectionSize(column)
+            content_width = self._table_widget.columnWidth(column)
+
+            actual_width = max(header_width, content_width)
+
             if actual_width > max_column_width:
                 header.setSectionResizeMode(
                     column, QtWidgets.QHeaderView.ResizeMode.Interactive
@@ -199,17 +209,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         screen_geometry = screen.availableGeometry()
         screen_height = screen_geometry.height()
 
-        # Maximum height: 80% of screen height
         max_height = int(screen_height * 0.5)
 
-        table_size = self._table_widget.sizeHint()
+        table_size = self._wrapper_right.sizeHint()
         button_size = self._wrapper_left.sizeHint()
         new_height = min(table_size.height() + padding, max_height)
 
         # Resize window to fit the table with the new height constraint
-        self.resize(
-            table_size.width() + button_size.width() + (padding * 2), new_height
-        )
+        new_width = table_size.width() + button_size.width() + (padding * 3)
+        self.resize(new_width, new_height)
 
     @staticmethod
     def init():

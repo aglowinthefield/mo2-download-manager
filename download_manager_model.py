@@ -1,16 +1,15 @@
 ﻿import os.path
-from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import List
 
 import mobase
 
+from .download_entry import DownloadEntry
 from .mo2_compat_utils import is_above_2_4
 from .util import logger
-from .download_entry import DownloadEntry
-
 
 try:
     from PyQt6.QtCore import QSettings
@@ -24,24 +23,24 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
-def _file_path_to_download_entry(normalized_path):
+def _file_path_to_download_entry(normalized_path: str):
     meta_path = normalized_path + ".meta"
 
     if not os.path.exists(meta_path):
-        return _file_path_to_stub(normalized_path)
+        return _file_path_to_stub(Path(normalized_path))
 
     file_setting = QSettings(meta_path, QSettings.Format.IniFormat)
 
     # file_time: QVariant = file_setting.value("fileTime")
-    name            = file_setting.value("name")
-    mod_name        = file_setting.value("modName")
-    file_name       = os.path.basename(meta_path)
-    file_time       = datetime.fromtimestamp(os.path.getmtime(normalized_path))
-    version         = file_setting.value("version")
-    installed       = file_setting.value("installed") == "true"
-    raw_path        = Path(meta_path[:-5])
-    raw_meta_path   = Path(meta_path)
-    file_size       = raw_path.stat().st_size
+    name = file_setting.value("name")
+    mod_name = file_setting.value("modName")
+    file_name = os.path.basename(meta_path)
+    file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
+    version = file_setting.value("version")
+    installed = file_setting.value("installed") == "true"
+    raw_path = Path(meta_path[:-5])
+    raw_meta_path = Path(meta_path)
+    file_size = raw_path.stat().st_size
 
     if mod_name is None and file_name is None:
         print(f"Empty meta found for: {normalized_path}")
@@ -59,7 +58,8 @@ def _file_path_to_download_entry(normalized_path):
         file_size=file_size,
     )
 
-def _file_path_to_stub(normalized_path):
+
+def _file_path_to_stub(normalized_path: Path):
     return DownloadEntry(
         name="",
         modname="",
@@ -67,7 +67,7 @@ def _file_path_to_stub(normalized_path):
         filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
         version="",
         installed=False,
-        raw_file_path=Path(normalized_path),
+        raw_file_path=normalized_path,
         raw_meta_path=None,
         file_size=normalized_path.stat().st_size,
     )
