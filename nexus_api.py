@@ -1,7 +1,70 @@
 ﻿import http.client
 import json
+from typing import TypedDict
 
 from .util import logger
+
+
+class NexusFileDetails(TypedDict):
+    id: list[int]
+    uid: int
+    file_id: int
+    name: str
+    version: str
+    category_id: int
+    category_name: str
+    is_primary: bool
+    size: int
+    file_name: str
+    uploaded_timestamp: int
+    uploaded_time: str
+    mod_version: str
+    external_virus_scan_url: str
+    description: str
+    size_kb: int
+    size_in_bytes: int
+    changelog_html: str
+    content_preview_link: str
+    md5: str
+
+
+class NexusUserResponse(TypedDict):
+    member_id: int
+    member_group_id: int
+    name: str
+
+
+class NexusModResponse(TypedDict):
+    name: str
+    summary: str
+    description: str
+    picture_url: str
+    mod_downloads: int
+    mod_unique_downloads: int
+    uid: int
+    user: NexusUserResponse
+    mod_id: int
+    game_id: int
+    allow_rating: bool
+    domain_name: str
+    category_id: int
+    version: str
+    endorsement_count: int
+    created_timestamp: int
+    created_time: str
+    updated_timestamp: int
+    updated_time: str
+    author: str
+    uploaded_by: str
+    uploaded_users_profile_url: str
+    contains_adult_content: bool
+    status: str
+    available: bool
+
+
+class NexusMD5Response(TypedDict):
+    mod: NexusModResponse
+    file_details: NexusFileDetails
 
 
 class NexusApi:
@@ -26,7 +89,7 @@ class NexusApi:
         except Exception:
             return False
 
-    def md5_lookup(self, md5_hash: str):
+    def md5_lookup(self, md5_hash: str) -> list[NexusMD5Response] | None:
         path_vars = {"md5_hash": md5_hash, "game_domain_name": "skyrimspecialedition"}
         try:
             response = self._make_nexus_request(
