@@ -1,6 +1,7 @@
 ﻿from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
+from typing import Union
 
 
 class DictMixin:
@@ -20,5 +21,5 @@ class DownloadEntry(DictMixin):
     version: str
     installed: bool
     raw_file_path: Path
-    raw_meta_path: Path | None
+    raw_meta_path: Union[Path, None]  # 3.9 doesn't allow X | Y union
     file_size: float

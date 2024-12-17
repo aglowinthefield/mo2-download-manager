@@ -1,6 +1,6 @@
 ﻿import http.client
 import json
-from typing import TypedDict
+from typing import TypedDict, Union
 
 from .util import logger
 
@@ -89,7 +89,7 @@ class NexusApi:
         except Exception:
             return False
 
-    def md5_lookup(self, md5_hash: str) -> list[NexusMD5Response] | None:
+    def md5_lookup(self, md5_hash: str) -> Union[list[NexusMD5Response], None]:
         path_vars = {"md5_hash": md5_hash, "game_domain_name": "skyrimspecialedition"}
         try:
             response = self._make_nexus_request(

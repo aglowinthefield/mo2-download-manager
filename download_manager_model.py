@@ -174,6 +174,8 @@ class DownloadManagerModel:
         response = nexus_api.md5_lookup(md5_hash)
         print(response)
 
+    # def _create_meta_from_mod_and_nexus_response(self, mod: DownloadEntry, response):
+
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()
         print(f"Installing {mod.name} with MO2 API version {mo2_version}")
