@@ -6,12 +6,13 @@ from .ui_statics import create_basic_table_widget, button_with_handler
 
 try:
     import PyQt6.QtWidgets as QtWidgets
+    from PyQt6.QtGui import QAction
     from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication, QSizePolicy
+    from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
-    from PyQt5.QtWidgets import QApplication, QSizePolicy
+    from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction
 
 
 def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
@@ -164,6 +165,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     # endregion
 
+    # region
     def install_selected(self):
         self._table_model.install_selected()
         self.refresh_data()
@@ -186,6 +188,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.resize_window()
         self.reapply_sort()
         self.setUpdatesEnabled(True)
+
+    # endregion
 
     def reapply_sort(self):
         if not self.__initialized:
@@ -238,6 +242,22 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         # Resize window to fit the table with the new height constraint
         new_width = table_size.width() + button_size.width() + (padding * 3)
         self.resize(new_width, new_height)
+
+    def contextMenuEvent(self, event):
+        context_menu = QMenu(self)
+        select_action = QAction("Select", self)
+        select_action.triggered.connect(self._select_from_context)
+        context_menu.addAction(select_action)
+        context_menu.exec(event.globalPos())
+
+    def _select_from_context(self):
+        self.setUpdatesEnabled(False)
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model or len(selection_model.selectedIndexes()) == 0:
+            return
+        for index in selection_model.selectedIndexes():
+            self._table_model.select_at_index(index)
+        self.setUpdatesEnabled(True)
 
     @staticmethod
     def init():

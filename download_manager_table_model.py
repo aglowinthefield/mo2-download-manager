@@ -139,6 +139,13 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return True
         return False
 
+    def select_at_index(self, index: QModelIndex):
+        selected_data = self._data[index.row()]
+        if selected_data not in self._selected:
+            self._selected.add(selected_data)
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
     def flags(self, index: QModelIndex):
         if not index.isValid():
             # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
