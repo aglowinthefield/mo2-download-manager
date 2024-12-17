@@ -28,6 +28,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     BUTTON_TEXT = {
         "INSTALL": lambda count: f"Install Selected ({count})",
+        "REQUERY": lambda count: f"Re-query Selected ({count})",
         "DELETE": lambda count: f"Delete Selected ({count})",
         "HIDE": lambda count: f"Mark Hidden ({count})",
     }
@@ -59,10 +60,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_left.addItem(spacer)
 
             self._install_button = self.create_install_button()
+            self._requery_button = self.create_requery_button()
             self._hide_button = self.create_hide_button()
             self._delete_button = self.create_delete_button()
 
             layout_left.addWidget(self._install_button)
+            layout_left.addWidget(self._requery_button)
             layout_left.addWidget(self._hide_button)
             layout_left.addWidget(self._delete_button)
 
@@ -95,13 +98,24 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     # region UI - Download Operations
     def create_delete_button(self):
-        return button_with_handler("Delete Selected", self, self.delete_selected)
+        return button_with_handler(
+            self.BUTTON_TEXT["DELETE"](0), self, self.delete_selected
+        )
 
     def create_install_button(self):
-        return button_with_handler("Install Selected", self, self.install_selected)
+        return button_with_handler(
+            self.BUTTON_TEXT["INSTALL"](0), self, self.install_selected
+        )
+
+    def create_requery_button(self):
+        return button_with_handler(
+            self.BUTTON_TEXT["REQUERY"](0), self, self.requery_selected
+        )
 
     def create_hide_button(self):
-        return button_with_handler("Mark Hidden", self, self.hide_selected)
+        return button_with_handler(
+            self.BUTTON_TEXT["HIDE"](0), self, self.hide_selected
+        )
 
     # endregion
 
@@ -140,9 +154,11 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def _toggle_button_operations(self, selected_count):
         self._hide_button.setEnabled(selected_count > 0)
         self._delete_button.setEnabled(selected_count > 0)
+        self._requery_button.setEnabled(selected_count > 0)
         self._install_button.setEnabled(selected_count > 0)
 
         self._hide_button.setText(self.BUTTON_TEXT["HIDE"](selected_count))
+        self._requery_button.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
         self._delete_button.setText(self.BUTTON_TEXT["DELETE"](selected_count))
         self._install_button.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
 
@@ -150,6 +166,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def install_selected(self):
         self._table_model.install_selected()
+        self.refresh_data()
+
+    def requery_selected(self):
+        self._table_model.requery_selected()
         self.refresh_data()
 
     def delete_selected(self):

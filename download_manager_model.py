@@ -9,7 +9,8 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .mo2_compat_utils import is_above_2_4
-from .util import logger
+from .nexus_api import NexusApi
+from .util import logger, md5_archive
 
 try:
     from PyQt6.QtCore import QSettings
@@ -160,6 +161,18 @@ class DownloadManagerModel:
     def bulk_install(self, items):
         for mod in items:
             self.install_mod(mod)
+
+    def bulk_requery(self, items):
+        for mod in items:
+            self.requery(mod)
+
+    def requery(self, mod: DownloadEntry):
+        nexus_api = NexusApi(
+            self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
+        )
+        md5_hash = md5_archive(mod)
+        response = nexus_api.md5_lookup(md5_hash)
+        print(response)
 
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()

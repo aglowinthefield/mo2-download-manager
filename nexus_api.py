@@ -3,14 +3,15 @@ import json
 
 from .util import logger
 
+
 class NexusApi:
 
-    BASE_URL = "api.nexusmods.com"
-    API_KEY_HEADER = "apiKey"
+    _BASE_URL = "api.nexusmods.com"
+    _API_KEY_HEADER = "apiKey"
 
-    PATHS = {
+    _PATHS = {
         "VALIDATE": "/v1/users/validate.json",
-        "MD5": "/v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json"
+        "MD5": "/v1/games/{game_domain_name}/mods/md5_search/{md5_hash}.json",
     }
 
     __api_key: str = None
@@ -20,15 +21,17 @@ class NexusApi:
 
     def validate_api_key(self) -> bool:
         try:
-            self._make_nexus_request(self.BASE_URL, self.PATHS["VALIDATE"])
+            self._make_nexus_request(self._BASE_URL, self._PATHS["VALIDATE"])
             return True
         except Exception:
             return False
 
     def md5_lookup(self, md5_hash: str):
-        path_vars = { "md5_hash": md5_hash, "game_domain_name": "skyrimspecialedition" }
+        path_vars = {"md5_hash": md5_hash, "game_domain_name": "skyrimspecialedition"}
         try:
-            response = self._make_nexus_request(self.BASE_URL, self.PATHS["MD5"], path_vars)
+            response = self._make_nexus_request(
+                self._BASE_URL, self._PATHS["MD5"], path_vars
+            )
             return response
         except Exception as e:
             logger.error(e)
@@ -41,7 +44,7 @@ class NexusApi:
         conn = None
         try:
             conn = http.client.HTTPSConnection(base_url)
-            headers = { self.API_KEY_HEADER: self.__api_key }
+            headers = {self._API_KEY_HEADER: self.__api_key}
 
             if path_vars:
                 endpoint = endpoint_template.format(**path_vars)
@@ -52,7 +55,9 @@ class NexusApi:
             response = conn.getresponse()
 
             if response.status != 200:
-                raise Exception(f"Request failed with status: {response.status} {response.reason}")
+                raise Exception(
+                    f"Request failed with status: {response.status} {response.reason}"
+                )
 
             data = response.read().decode("utf-8")
             return json.loads(data)  # Parse the JSON response
