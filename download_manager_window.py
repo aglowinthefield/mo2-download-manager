@@ -246,7 +246,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
         select_action = QAction("Select", self)
-        select_action.triggered.connect(self._select_from_context)
+        select_action.triggered.connect(self._select_from_context) # type: ignore
         context_menu.addAction(select_action)
         context_menu.exec(event.globalPos())
 

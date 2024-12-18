@@ -9,13 +9,13 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .mo2_compat_utils import is_above_2_4
-from .nexus_api import NexusApi
+from .nexus_api import NexusApi, NexusMD5Response
 from .util import logger, md5_archive
 
 try:
-    from PyQt6.QtCore import QSettings
+    from PyQt6.QtCore import QSettings, QDateTime, QVariant
 except ImportError:
-    from PyQt5.QtCore import QSettings
+    from PyQt5.QtCore import QSettings, QDateTime, QVariant
 
 
 def _hide_download(item: DownloadEntry):
@@ -172,9 +172,38 @@ class DownloadManagerModel:
         )
         md5_hash = md5_archive(mod)
         response = nexus_api.md5_lookup(md5_hash)
-        print(response)
+        logger.info(response)
+        if response is not None:
+            self._create_meta_from_mod_and_nexus_response(mod, response)
 
-    # def _create_meta_from_mod_and_nexus_response(self, mod: DownloadEntry, response):
+    def _create_meta_from_mod_and_nexus_response(
+        self, mod: DownloadEntry, response: NexusMD5Response
+    ):
+        meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_meta_path}.meta")
+
+        meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
+        meta_file.beginGroup("General")
+
+        meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
+        meta_file.setValue("modID", response.mod.mod_id)
+        meta_file.setValue("fileID", response.file_details.file_id)
+        meta_file.setValue("url", "")  # how?
+        meta_file.setValue("name", response.file_details.name)
+        meta_file.setValue("description", response.mod.description)
+        meta_file.setValue("modName", response.mod.name)
+        meta_file.setValue("version", response.file_details.version)
+        meta_file.setValue("newestVersion", "")  # omit?
+        meta_file.setValue("fileTime", QDateTime.currentDateTime())
+        meta_file.setValue("fileCategory", response.file_details.category_id)
+        meta_file.setValue("category", response.mod.category_id)
+        meta_file.setValue("repository", "Nexus")
+        meta_file.setValue("userData", QVariant(response.mod.user))
+        meta_file.setValue("installed", False)
+        meta_file.setValue("uninstalled", False)
+        meta_file.setValue("paused", False)
+        meta_file.setValue("removed", False)
+
+        meta_file.endGroup()
 
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()

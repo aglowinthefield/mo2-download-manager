@@ -28,7 +28,7 @@ def create_basic_table_widget():
 
 def button_with_handler(text, parent, handler):
     button = QtWidgets.QPushButton(text, parent)
-    button.clicked.connect(handler)
+    button.clicked.connect(handler) # type: ignore
     return button
 
 

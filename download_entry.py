@@ -3,13 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
-
-class DictMixin:
-    def __getitem__(self, key):
-        return getattr(self, key)
-
-    def __setitem__(self, key, value):
-        setattr(self, key, value)
+from .class_helpers import DictMixin
 
 
 @dataclass(frozen=True)

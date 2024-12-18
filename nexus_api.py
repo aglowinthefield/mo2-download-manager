@@ -1,11 +1,14 @@
 ﻿import http.client
 import json
-from typing import TypedDict, Union
+from dataclasses import dataclass
+from typing import Union
 
+from .class_helpers import DictMixin
 from .util import logger
 
 
-class NexusFileDetails(TypedDict):
+@dataclass
+class NexusFileDetails(DictMixin):
     id: list[int]
     uid: int
     file_id: int
@@ -28,13 +31,15 @@ class NexusFileDetails(TypedDict):
     md5: str
 
 
-class NexusUserResponse(TypedDict):
+@dataclass
+class NexusUserResponse(DictMixin):
     member_id: int
     member_group_id: int
     name: str
 
 
-class NexusModResponse(TypedDict):
+@dataclass
+class NexusModResponse(DictMixin):
     name: str
     summary: str
     description: str
@@ -60,11 +65,27 @@ class NexusModResponse(TypedDict):
     contains_adult_content: bool
     status: str
     available: bool
+    endorsement: Union[str, None]
 
 
-class NexusMD5Response(TypedDict):
+@dataclass
+class NexusMD5Response(DictMixin):
     mod: NexusModResponse
     file_details: NexusFileDetails
+
+
+def _md5_response_to_class(response_json) -> NexusMD5Response:
+    mod = response_json["mod"]
+    user = mod["user"]
+    file_details = response_json["file_details"]
+
+    # This mapping is brittle but IDK if we can pull in dependencies
+    file_details_parsed: NexusFileDetails = NexusFileDetails(**file_details)
+    user_parsed: NexusUserResponse = NexusUserResponse(**user)
+    mod_parsed: NexusModResponse = NexusModResponse(**mod)
+    mod_parsed.user = user_parsed
+
+    return NexusMD5Response(mod=mod_parsed, file_details=file_details_parsed)
 
 
 class NexusApi:
@@ -89,13 +110,18 @@ class NexusApi:
         except Exception:
             return False
 
-    def md5_lookup(self, md5_hash: str) -> Union[list[NexusMD5Response], None]:
+    def md5_lookup(self, md5_hash: str) -> Union[NexusMD5Response, None]:
         path_vars = {"md5_hash": md5_hash, "game_domain_name": "skyrimspecialedition"}
         try:
             response = self._make_nexus_request(
                 self._BASE_URL, self._PATHS["MD5"], path_vars
             )
-            return response
+            if isinstance(response, list):
+                return _md5_response_to_class(response[0])
+            elif isinstance(response, dict):
+                return _md5_response_to_class(response)
+            else:
+                return None
         except Exception as e:
             logger.error(e)
             return None

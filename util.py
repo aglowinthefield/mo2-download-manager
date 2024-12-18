@@ -1,11 +1,12 @@
-﻿import logging
+﻿import hashlib
+import logging
 import os
 from pathlib import Path
-import hashlib
 
 from .download_entry import DownloadEntry
 
 logger: logging.Logger = logging.getLogger("DownloadManager")
+
 
 def md5_archive(entry: DownloadEntry):
     hash_md5 = hashlib.md5()
@@ -19,12 +20,14 @@ def md5_archive(entry: DownloadEntry):
         print(f"File not found: {entry.raw_file_path}")
         return None
 
+
 def sizeof_fmt(num, suffix="B"):
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
+
 
 def create_logger() -> None:
     """
