@@ -5,8 +5,9 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from .util import logger, sizeof_fmt
 from .mo2_compat_utils import get_qt_checked_value
+from .ui_statics import bool_emoji
+from .util import logger, sizeof_fmt
 
 try:
     import PyQt6.QtCore as QtCore
@@ -16,6 +17,7 @@ except ImportError:
     import PyQt5.QtCore as QtCore
     from PyQt5.QtCore import Qt, QModelIndex
     from PyQt5.QtGui import QColor
+
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
@@ -38,7 +40,15 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
-    _columnFields = ["name", "modname", "filename", "filetime", "version", "file_size", "installed"]
+    _columnFields = [
+        "name",
+        "modname",
+        "filename",
+        "filetime",
+        "version",
+        "file_size",
+        "installed",
+    ]
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
@@ -70,7 +80,10 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def _render_column(self, item, index):
         if item is None:
             logger.info(
-                "Received null item for row " + index.row() + " and column " + index.column()
+                "Received null item for row "
+                + index.row()
+                + " and column "
+                + index.column()
             )
             return None
 
@@ -84,6 +97,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         if column == 5:
             return sizeof_fmt(column_value)
+        if isinstance(column_value, bool):
+            return bool_emoji(column_value)
         if isinstance(column_value, datetime):
             return column_value.strftime("%Y-%m-%d %H:%M:%S")
         return column_value
@@ -124,6 +139,13 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return True
         return False
 
+    def select_at_index(self, index: QModelIndex):
+        selected_data = self._data[index.row()]
+        if selected_data not in self._selected:
+            self._selected.add(selected_data)
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
     def flags(self, index: QModelIndex):
         if not index.isValid():
             # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
@@ -142,9 +164,11 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def sort(self, column, order=...):
         self.layoutAboutToBeChanged.emit()
         self._data.sort(
-            key=lambda row: (float(row[self._columnFields[column]])
-                         if isinstance(row[self._columnFields[column]], (int, float))
-                         else str(row[self._columnFields[column]]).lower()),
+            key=lambda row: (
+                float(row[self._columnFields[column]])
+                if isinstance(row[self._columnFields[column]], (int, float))
+                else str(row[self._columnFields[column]]).lower()
+            ),
             reverse=(order == Qt.SortOrder.DescendingOrder),
         )
         self.layoutChanged.emit()
@@ -170,6 +194,10 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if self._model:
             self._model.bulk_install(self._selected)
             self.notify_table_updated()
+
+    def requery_selected(self):
+        self._model.bulk_requery(self._selected)
+        self.notify_table_updated()
 
     def delete_selected(self):
         if self._model:

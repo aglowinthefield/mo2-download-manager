@@ -1,21 +1,21 @@
 ﻿import os.path
-from concurrent.futures import ThreadPoolExecutor
 from collections import defaultdict
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
 from typing import List
 
 import mobase
 
-from .mo2_compat_utils import is_above_2_4
-from .util import logger
 from .download_entry import DownloadEntry
-
+from .mo2_compat_utils import is_above_2_4
+from .nexus_api import NexusApi, NexusMD5Response
+from .util import logger, md5_archive
 
 try:
-    from PyQt6.QtCore import QSettings
+    from PyQt6.QtCore import QSettings, QDateTime, QVariant
 except ImportError:
-    from PyQt5.QtCore import QSettings
+    from PyQt5.QtCore import QSettings, QDateTime, QVariant
 
 
 def _hide_download(item: DownloadEntry):
@@ -24,35 +24,53 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
-def _meta_to_download_entry(normalized_path):
-    file_setting = QSettings(normalized_path, QSettings.Format.IniFormat)
+def _file_path_to_download_entry(normalized_path: str):
+    meta_path = normalized_path + ".meta"
+
+    if not os.path.exists(meta_path):
+        return _file_path_to_stub(Path(normalized_path))
+
+    file_setting = QSettings(meta_path, QSettings.Format.IniFormat)
 
     # file_time: QVariant = file_setting.value("fileTime")
-    name            = file_setting.value("name")
-    mod_name        = file_setting.value("modName")
-    file_name       = os.path.basename(normalized_path)
-    file_time       = datetime.fromtimestamp(os.path.getmtime(normalized_path))
-    version         = file_setting.value("version")
-    installed       = file_setting.value("installed") == "true"
-    raw_path        = Path(normalized_path[:-5])  # remove ".meta". removesuffix not supported in 3.9
-    raw_meta_path   = Path(normalized_path)
-    file_size       = raw_path.stat().st_size
+    name = file_setting.value("name")
+    mod_name = file_setting.value("modName")
+    file_name = os.path.basename(meta_path)
+    file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
+    version = file_setting.value("version")
+    installed = file_setting.value("installed") == "true"
+    raw_path = Path(meta_path[:-5])
+    raw_meta_path = Path(meta_path)
+    file_size = raw_path.stat().st_size
 
     if mod_name is None and file_name is None:
         print(f"Empty meta found for: {normalized_path}")
         return None
 
-    # Do we want to try semver parsing here? Most mods don't have valid semver strings
     return DownloadEntry(
-        name,
-        mod_name,
-        str(file_name),
-        file_time,
-        version,
-        installed,
-        raw_path,
-        raw_meta_path,
-        file_size,
+        name=name,
+        modname=mod_name,
+        filename=str(file_name),
+        filetime=file_time,
+        version=version,
+        installed=installed,
+        raw_file_path=raw_path,
+        raw_meta_path=raw_meta_path,
+        file_size=file_size,
+    )
+
+
+def _file_path_to_stub(normalized_path: Path):
+    return DownloadEntry(
+        name="",
+        modname="",
+        filename=str(os.path.basename(normalized_path)),
+        filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
+        version="",
+        installed=False,
+        raw_file_path=normalized_path,
+        raw_meta_path=None,
+        file_size=normalized_path.stat().st_size,
     )
 
 
@@ -62,7 +80,7 @@ def _process_file(path):
         print(f"File not found: {normalized_path}")
         return None
 
-    return _meta_to_download_entry(normalized_path)
+    return _file_path_to_download_entry(normalized_path)
 
 
 class DownloadManagerModel:
@@ -78,11 +96,11 @@ class DownloadManagerModel:
         self.__data_no_installed = []
 
     def refresh(self):
-        self.__files = self.collect_meta_files()
-        self.read_meta_files()
+        self.__files = self.collect_archive_files()
+        self._read_meta_files()
         self.__data_no_installed = [d for d in self.__data if not d.installed]
 
-    def read_meta_files(self):
+    def _read_meta_files(self):
         self.__data = []
         with ThreadPoolExecutor() as executor:
             futures = []
@@ -96,11 +114,13 @@ class DownloadManagerModel:
                 else:
                     logger.info("Entry broken. Should not happen.")
 
-    def collect_meta_files(self):
+    def collect_archive_files(self):
         directory_path = Path(self.__organizer.downloadsPath())
+        extensions = ["*.zip", "*.7z", "*.rar", "*.7zip"]
         files = [
             str(f)
-            for f in directory_path.glob("*.meta")
+            for ext in extensions
+            for f in directory_path.glob(ext)
             if f.is_file() and not f.stem.endswith("unfinished")
         ]
         return files
@@ -141,6 +161,49 @@ class DownloadManagerModel:
     def bulk_install(self, items):
         for mod in items:
             self.install_mod(mod)
+
+    def bulk_requery(self, items):
+        for mod in items:
+            self.requery(mod)
+
+    def requery(self, mod: DownloadEntry):
+        nexus_api = NexusApi(
+            self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
+        )
+        md5_hash = md5_archive(mod)
+        response = nexus_api.md5_lookup(md5_hash)
+        logger.info(response)
+        if response is not None:
+            self._create_meta_from_mod_and_nexus_response(mod, response)
+
+    def _create_meta_from_mod_and_nexus_response(
+        self, mod: DownloadEntry, response: NexusMD5Response
+    ):
+        meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_meta_path}.meta")
+
+        meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
+        meta_file.beginGroup("General")
+
+        meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
+        meta_file.setValue("modID", response.mod.mod_id)
+        meta_file.setValue("fileID", response.file_details.file_id)
+        meta_file.setValue("url", "")  # how?
+        meta_file.setValue("name", response.file_details.name)
+        meta_file.setValue("description", response.mod.description)
+        meta_file.setValue("modName", response.mod.name)
+        meta_file.setValue("version", response.file_details.version)
+        meta_file.setValue("newestVersion", "")  # omit?
+        meta_file.setValue("fileTime", QDateTime.currentDateTime())
+        meta_file.setValue("fileCategory", response.file_details.category_id)
+        meta_file.setValue("category", response.mod.category_id)
+        meta_file.setValue("repository", "Nexus")
+        meta_file.setValue("userData", QVariant(response.mod.user))
+        meta_file.setValue("installed", False)
+        meta_file.setValue("uninstalled", False)
+        meta_file.setValue("paused", False)
+        meta_file.setValue("removed", False)
+
+        meta_file.endGroup()
 
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()

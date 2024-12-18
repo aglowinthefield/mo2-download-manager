@@ -1,8 +1,25 @@
-﻿import logging
+﻿import hashlib
+import logging
 import os
 from pathlib import Path
 
+from .download_entry import DownloadEntry
+
 logger: logging.Logger = logging.getLogger("DownloadManager")
+
+
+def md5_archive(entry: DownloadEntry):
+    hash_md5 = hashlib.md5()
+    try:
+        with open(entry.raw_file_path, "rb") as file:
+            # Read the file in chunks to avoid memory issues with large files
+            for chunk in iter(lambda: file.read(4096), b""):
+                hash_md5.update(chunk)
+        return hash_md5.hexdigest()
+    except FileNotFoundError:
+        print(f"File not found: {entry.raw_file_path}")
+        return None
+
 
 def sizeof_fmt(num, suffix="B"):
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
@@ -10,6 +27,7 @@ def sizeof_fmt(num, suffix="B"):
             return f"{num:3.1f}{unit}{suffix}"
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
+
 
 def create_logger() -> None:
     """

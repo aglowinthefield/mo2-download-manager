@@ -16,11 +16,11 @@ try:
         port=5678,
         stdoutToServer=True,
         stderrToServer=True,
-        suspend=True,
+        suspend=False,
     )
     print("Debugger started")
 except Exception:
-    pass
+    print("Could not start debugger. Continuing.")
 
 
 # pylint:disable=invalid-name
