@@ -179,10 +179,10 @@ class DownloadManagerModel:
     def _create_meta_from_mod_and_nexus_response(
         self, mod: DownloadEntry, response: NexusMD5Response
     ):
-        meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_meta_path}.meta")
+        meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_file_path.name}.meta")
 
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
-        meta_file.beginGroup("General")
+        # meta_file.beginGroup("General")
 
         meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
         meta_file.setValue("modID", response.mod.mod_id)
@@ -203,7 +203,8 @@ class DownloadManagerModel:
         meta_file.setValue("paused", False)
         meta_file.setValue("removed", False)
 
-        meta_file.endGroup()
+        # meta_file.endGroup()
+        meta_file.sync()
 
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()
