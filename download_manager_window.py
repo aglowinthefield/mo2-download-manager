@@ -36,12 +36,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     }
 
     __initialized: bool = False
+    __organizer: mobase.IOrganizer = None
+    hash_worker = None
+    hash_dialog = None
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
-        self.hash_worker = None
-        self.hash_dialog = None
         try:
             super().__init__(parent)
+
+            self.__organizer = organizer
 
             self._table_model = DownloadManagerTableModel(organizer)
             self._table_widget = self.create_table_widget()
@@ -174,6 +177,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def requery_selected(self):
+        if not self._validate_nexus_api_key():
+            return
+
         for item in self._table_model.selected:
             self.hash_dialog = HashProgressDialog(self) # type: ignore
             self.hash_worker = HashWorker(item.raw_file_path)
@@ -272,6 +278,19 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._table_model.select_at_index(index)
         self.setUpdatesEnabled(True)
 
+    def _validate_nexus_api_key(self):
+        api_key: str = self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
+        if api_key:
+            return True
+        show_error(
+            "Please add your API key in plugin settings and try again. "
+            "See the README/Nexus page for information.",
+            "Nexus API key not found")
+        return False
+
+    #################
+    # Required by MO2
+    #################
     @staticmethod
     def init():
         """MO2 requires this fn be present for QDialog."""

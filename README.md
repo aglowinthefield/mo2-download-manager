@@ -26,6 +26,16 @@ Extract into the root of your MO2 install.
 
 Click the plugins icon in the MO2 toolbar and launch with Download Manager.
 
+### API Keys
+
+**To use the "re-query" functionality in this plugin, you have to add your Nexus MO2 API key to the plugin settings.**
+
+1. Navigate to the [API keys page](https://next.nexusmods.com/settings/api-keys) on Nexus.
+2. Scroll down to Mod Organizer 2 ![apikey](./docs/apikey.png)
+3. Copy the generated key into the Download Manager plugin settings, accessed via **Tools | Settings | Plugins
+   ** ![settings](./docs/mo2window.png)
+
+---
 **NOTE** Because 'refresh' is possibly pretty expensive if you have 100s
 of GBs of downloads, it does not run on launch by default.
 Hit refresh once when the window opens :)

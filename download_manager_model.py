@@ -162,7 +162,6 @@ class DownloadManagerModel:
         for mod in items:
             self.install_mod(mod)
 
-# Maybe make this accept the md5 hash instead.
     def requery(self, mod: DownloadEntry, md5_hash: str):
         nexus_api = NexusApi(
             self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
