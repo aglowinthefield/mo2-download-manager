@@ -1,7 +1,7 @@
 ﻿import mobase
 
-from .util import logger
 from .download_manager_window import DownloadManagerWindow
+from .util import logger
 
 try:
     import PyQt6.QtGui as QtGui
@@ -31,7 +31,6 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         self.__window.setWindowTitle(f"{self.NAME} v{self.version().displayString()}")
         self.__window.exec()
 
-    # pylint:disable=invalid-name
     def displayName(self):
         return self.NAME
 

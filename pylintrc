@@ -4,6 +4,7 @@ extension-pkg-whitelist=PyQt5.QtWidgets, PyQt6.QtWidgets,
     PyQt5.QtGui, PyQt6.QtGui,
     PyQt5, PyQt6
 disable=import-error,
+    invalid-name,
     broad-except,
     broad-exception-caught,
     broad-exception-raised,

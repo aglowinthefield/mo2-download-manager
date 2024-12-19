@@ -5,7 +5,9 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
+from .hash_worker import HashWorker
 from .mo2_compat_utils import get_qt_checked_value
+from .ui_statics import HashProgressDialog
 from .ui_statics import bool_emoji
 from .util import logger, sizeof_fmt
 
@@ -36,7 +38,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _model: DownloadManagerModel = None
-    _selected = set()
+    _selected: set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
@@ -52,6 +54,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
+        self.hash_worker: HashWorker
+        self.hash_dialog: HashProgressDialog
         self._model = DownloadManagerModel(organizer)
 
     def init_data(self, data: List[DownloadEntry]):
@@ -60,7 +64,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.notify_table_updated()
         self.layoutChanged.emit()
 
-    # pylint:disable=invalid-name
     def headerData(self, section, _orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
             if section > len(self._header) - 1:
@@ -69,11 +72,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return self._header[section]
         return None
 
-    # pylint:disable=invalid-name
     def columnCount(self, _parent=...):
         return 7
 
-    # pylint:disable=invalid-name
     def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
 
@@ -196,8 +197,12 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self.notify_table_updated()
 
     def requery_selected(self):
-        self._model.bulk_requery(self._selected)
-        self.notify_table_updated()
+        return True
+        # for mod in self._selected:
+        #     # get md5 hash here
+        #     self._model.requery(mod)
+        # self.notify_table_updated()
+
 
     def delete_selected(self):
         if self._model:
@@ -215,6 +220,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._data = self._model.data
         self.notify_table_updated()
 
+    # TODO: Optimize this method. We don't need to call it that often and it can definitely be smarter when we do.
     def refresh(self):
         self._model.refresh()
         self._data = self._model.data
@@ -225,3 +231,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self.index(0, 0),
             self.index(len(self._data) - 1, len(self._header) - 1),
         )
+
+    @property
+    def selected(self):
+        return self._selected

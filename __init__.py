@@ -27,7 +27,6 @@ except Exception as e:
     logger.error(e)
 
 
-# pylint:disable=invalid-name
 def createPlugin():
     """MO2 init fn. Cant be snake case."""
     return DownloadManagerPlugin()

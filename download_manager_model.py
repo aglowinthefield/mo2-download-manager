@@ -10,7 +10,7 @@ import mobase
 from .download_entry import DownloadEntry
 from .mo2_compat_utils import is_above_2_4
 from .nexus_api import NexusApi, NexusMD5Response
-from .util import logger, md5_archive
+from .util import logger
 
 try:
     from PyQt6.QtCore import QSettings, QDateTime, QVariant
@@ -162,15 +162,11 @@ class DownloadManagerModel:
         for mod in items:
             self.install_mod(mod)
 
-    def bulk_requery(self, items):
-        for mod in items:
-            self.requery(mod)
-
-    def requery(self, mod: DownloadEntry):
+# Maybe make this accept the md5 hash instead.
+    def requery(self, mod: DownloadEntry, md5_hash: str):
         nexus_api = NexusApi(
             self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
         )
-        md5_hash = md5_archive(mod)
         response = nexus_api.md5_lookup(md5_hash)
         logger.info(response)
         if response is not None:

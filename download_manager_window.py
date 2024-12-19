@@ -1,8 +1,9 @@
 ﻿import mobase
 
 from .download_manager_table_model import DownloadManagerTableModel
+from .hash_worker import HashWorker
 from .mo2_compat_utils import get_qt_checked_value
-from .ui_statics import create_basic_table_widget, button_with_handler
+from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
 
 try:
     import PyQt6.QtWidgets as QtWidgets
@@ -37,6 +38,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     __initialized: bool = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
+        self.hash_worker = None
+        self.hash_dialog = None
         try:
             super().__init__(parent)
 
@@ -60,10 +63,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
             layout_left.addItem(spacer)
 
-            self._install_button = self.create_install_button()
-            self._requery_button = self.create_requery_button()
-            self._hide_button = self.create_hide_button()
-            self._delete_button = self.create_delete_button()
+            self._install_button = self._create_install_button()
+            self._requery_button = self._create_requery_button()
+            self._hide_button = self._create_hide_button()
+            self._delete_button = self._create_delete_button()
 
             layout_left.addWidget(self._install_button)
             layout_left.addWidget(self._requery_button)
@@ -98,22 +101,22 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
 
     # region UI - Download Operations
-    def create_delete_button(self):
+    def _create_delete_button(self):
         return button_with_handler(
             self.BUTTON_TEXT["DELETE"](0), self, self.delete_selected
         )
 
-    def create_install_button(self):
+    def _create_install_button(self):
         return button_with_handler(
             self.BUTTON_TEXT["INSTALL"](0), self, self.install_selected
         )
 
-    def create_requery_button(self):
+    def _create_requery_button(self):
         return button_with_handler(
             self.BUTTON_TEXT["REQUERY"](0), self, self.requery_selected
         )
 
-    def create_hide_button(self):
+    def _create_hide_button(self):
         return button_with_handler(
             self.BUTTON_TEXT["HIDE"](0), self, self.hide_selected
         )
@@ -171,8 +174,21 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def requery_selected(self):
+        for item in self._table_model.selected:
+            self.hash_dialog = HashProgressDialog(self) # type: ignore
+            self.hash_worker = HashWorker(item.raw_file_path)
+            self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)
+            self.hash_worker.hash_computed.connect(self._on_hash_complete)
+
+            self.hash_dialog.open() # Note: Using this instead of exec(). exec blocks main thread. Fights with hashing
+            self.hash_worker.run()
+
         self._table_model.requery_selected()
         self.refresh_data()
+
+    def _on_hash_complete(self, result):
+        self.hash_dialog.accept()
+        print(result)
 
     def delete_selected(self):
         self._table_model.delete_selected()
@@ -229,10 +245,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 header.resizeSection(column, max_column_width)
 
         # Make sure window doesn't get tall af
-        screen = QApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        screen_height = screen_geometry.height()
-
+        screen_height = QApplication.primaryScreen().availableGeometry().height()
         max_height = int(screen_height * 0.5)
 
         table_size = self._wrapper_right.sizeHint()
