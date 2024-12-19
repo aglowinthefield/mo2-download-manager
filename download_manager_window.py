@@ -39,6 +39,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     __organizer: mobase.IOrganizer = None
     hash_worker = None
     hash_dialog = None
+    _has_resized = False
+    _is_refreshing = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         try:
@@ -55,7 +57,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             # This area has the select/refresh/table operations fields
             layout_left = QtWidgets.QVBoxLayout()
-            layout_left.addWidget(self.create_refresh_button())
+            self._refresh_button = self.create_refresh_button()
+            layout_left.addWidget(self._refresh_button)
             layout_left.addWidget(self.create_select_duplicates_button())
             layout_left.addWidget(self.create_select_all_button())
             layout_left.addWidget(self.create_select_none_button())
@@ -205,17 +208,20 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
-        self.setUpdatesEnabled(False)
+        self._refresh_button.setEnabled(False)
         self._table_model.refresh()
-        self.resize_window()
+        if not self._has_resized:
+            self.resize_window()
+            self._has_resized = True
         self.reapply_sort()
-        self.setUpdatesEnabled(True)
+        self._refresh_button.setEnabled(True)
 
     # endregion
 
     def reapply_sort(self):
-        if not self.__initialized:
-            return
+        # if not self.__initialized:
+        #     return
+        # First run of this on refresh will pick descending order by default
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()
@@ -224,6 +230,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def create_table_widget(self):
         table = create_basic_table_widget()
         table.setModel(self._table_model)
+        table.setSortingEnabled(True)
+        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         return table
 
     def resize_window(self):
@@ -261,6 +269,13 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         # Resize window to fit the table with the new height constraint
         new_width = table_size.width() + button_size.width() + (padding * 3)
         self.resize(new_width, new_height)
+        self._center_window()
+
+    def _center_window(self):
+        screen = QApplication.primaryScreen().availableGeometry()
+        this_window = self.frameGeometry()
+        this_window.moveCenter(screen.center())
+        self.move(this_window.topLeft())
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)

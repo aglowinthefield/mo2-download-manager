@@ -29,7 +29,6 @@ def create_basic_table_widget():
     table = QtWidgets.QTableView()
     table.verticalHeader().setVisible(False)
     table.setAlternatingRowColors(True)
-    table.setSortingEnabled(True)
     table.setSizeAdjustPolicy(
         QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
     )
