@@ -15,7 +15,8 @@ Features include:
 
 ## Installing
 
-Download the zip archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/) (I wrote this README for Nexus haha)
+Download the zip archive here or on [GitHub](https://github.com/aglowinthefield/mo2-download-manager/releases/) (I wrote
+this README for Nexus haha)
 
 Extract into the root of your MO2 install.
 
@@ -25,6 +26,16 @@ Extract into the root of your MO2 install.
 
 Click the plugins icon in the MO2 toolbar and launch with Download Manager.
 
+### API Keys
+
+**To use the "re-query" functionality in this plugin, you have to add your Nexus MO2 API key to the plugin settings.**
+
+1. Navigate to the [API keys page](https://next.nexusmods.com/settings/api-keys) on Nexus.
+2. Scroll down to Mod Organizer 2 ![apikey](./docs/apikey.png)
+3. Copy the generated key into the Download Manager plugin settings, accessed via **Tools | Settings | Plugins
+   ** ![settings](./docs/mo2window.png)
+
+---
 **NOTE** Because 'refresh' is possibly pretty expensive if you have 100s
 of GBs of downloads, it does not run on launch by default.
 Hit refresh once when the window opens :)
@@ -39,20 +50,19 @@ improvements once I get my sea-legs with C++ and CMake.
 
 ## Building/Contributing
 
-Set up `venv` however you'd like. I have mine in the root of the project and 
-use `pyenv` to manage Python versions. I build against 3.12.
+This project uses [Poetry](https://python-poetry.org/) for building. It should be as simple as:
 
-You should not have to do any `pip install`. We only use MO2 libraries with one caveat:
+`poetry install`
 
-I'm using PyCharm to enable remote debugging through MO2.
-Pretty neat stuff. However you cannot import libraries into MO2 plugins
-without having their files explicitly in the project dir, which is why we have
-these lines in __init__.py
+If you want the pycharm debugger, follow the instructions in the `Python Debug Server` section of PyCharm run
+configurations if you want to use this
+functionality. It'll just silently move along without it. I install the debugger separately to let MO2 recognize
+it inside the plugin directory. Run below to do the same:
 
-```python
-lib_dir = os.path.join(os.path.dirname(__file__), "libs")
-sys.path.append(lib_dir)
-```
+`pip install -r requirements.txt -t libs`
 
-Follow the instructions in the `Python Debug Server` section of PyCharm run configurations if you want to use this functionality.
-It'll just silently move along without it.
+As of December 19, 2024 -- if you are using the latest version of PyCharm, you'll also want to follow
+this
+workaround: https://youtrack.jetbrains.com/issue/PY-77357/Python-Debug-Server-with-pydevd-pycharm-stopped-working-in-2024.3#focus=Change-27-11071318.0-0.pinned
+
+otherwise MO2 will simply freeze when you try to start it with the debug server enabled.
