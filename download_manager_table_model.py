@@ -1,5 +1,5 @@
 ﻿from datetime import datetime
-from typing import List
+from typing import Callable, Dict, List
 
 import mobase
 
@@ -7,8 +7,7 @@ from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .hash_worker import HashWorker
 from .mo2_compat_utils import get_qt_checked_value
-from .ui_statics import HashProgressDialog
-from .ui_statics import bool_emoji
+from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
 from .util import logger, sizeof_fmt
 
 try:
@@ -25,7 +24,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
-    COLUMN_MAPPING = {
+    COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], object]] = {
         0: lambda item: item.name,
         1: lambda item: item.modname,
         2: lambda item: item.filename,
@@ -33,6 +32,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         4: lambda item: item.version,
         5: lambda item: item.file_size,
         6: lambda item: item.installed,
+        7: lambda item: item.nexus_mod_id,
+        8: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
@@ -41,7 +42,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _selected: set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
+    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
     _columnFields = [
         "name",
         "modname",
@@ -50,6 +51,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         "version",
         "file_size",
         "installed",
+        "nexus_mod_id",
+        "nexus_file_id"
     ]
 
     def __init__(self, organizer: mobase.IOrganizer):
@@ -73,7 +76,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return None
 
     def columnCount(self, _parent=...):
-        return 7
+        return len(self._header)
 
     def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
@@ -102,7 +105,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return bool_emoji(column_value)
         if isinstance(column_value, datetime):
             return column_value.strftime("%Y-%m-%d %H:%M:%S")
-        return column_value
+        return value_or_no(column_value)
 
     def data(self, index: QModelIndex, role: int = ...):
         row = index.row()

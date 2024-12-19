@@ -32,31 +32,20 @@ def _file_path_to_download_entry(normalized_path: str):
 
     file_setting = QSettings(meta_path, QSettings.Format.IniFormat)
 
-    # file_time: QVariant = file_setting.value("fileTime")
-    name = file_setting.value("name")
-    mod_name = file_setting.value("modName")
-    file_name = os.path.basename(meta_path)
-    file_time = datetime.fromtimestamp(os.path.getmtime(normalized_path))
-    version = file_setting.value("version")
-    installed = file_setting.value("installed") == "true"
-    raw_path = Path(meta_path[:-5])
-    raw_meta_path = Path(meta_path)
-    file_size = raw_path.stat().st_size
-
-    if mod_name is None and file_name is None:
-        print(f"Empty meta found for: {normalized_path}")
-        return None
+    archive_path = Path(meta_path[:-5])
 
     return DownloadEntry(
-        name=name,
-        modname=mod_name,
-        filename=str(file_name),
-        filetime=file_time,
-        version=version,
-        installed=installed,
-        raw_file_path=raw_path,
-        raw_meta_path=raw_meta_path,
-        file_size=file_size,
+        name=file_setting.value("name"),
+        modname=file_setting.value("modName"),
+        filename=str(os.path.basename(meta_path)),
+        filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
+        version=file_setting.value("version"),
+        installed=file_setting.value("installed") == "true",
+        raw_file_path=archive_path,
+        raw_meta_path=Path(meta_path),
+        file_size=archive_path.stat().st_size,
+        nexus_file_id=file_setting.value("fileID"),
+        nexus_mod_id=file_setting.value("modID"),
     )
 
 
@@ -71,6 +60,8 @@ def _file_path_to_stub(normalized_path: Path):
         raw_file_path=normalized_path,
         raw_meta_path=None,
         file_size=normalized_path.stat().st_size,
+        nexus_file_id=None,
+        nexus_mod_id=None
     )
 
 
@@ -148,9 +139,9 @@ class DownloadManagerModel:
         file_to_delete = next((d for d in self.__data if d == item), None)
         if file_to_delete is None:
             return
-        if Path.is_file(file_to_delete.raw_file_path):
+        if file_to_delete.raw_file_path and Path.is_file(file_to_delete.raw_file_path):
             Path.unlink(file_to_delete.raw_file_path)
-        if Path.is_file(file_to_delete.raw_meta_path):
+        if file_to_delete.raw_meta_path and Path.is_file(file_to_delete.raw_meta_path):
             Path.unlink(file_to_delete.raw_meta_path)
 
     @staticmethod

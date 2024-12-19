@@ -96,6 +96,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             self.setLayout(self._main_layout)
             self.setMinimumSize(1024, 768)
+            self._center_window()
 
             self._table_model.dataChanged.connect(self.update_button_states)
 
@@ -219,9 +220,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     # endregion
 
     def reapply_sort(self):
-        # if not self.__initialized:
-        #     return
-        # First run of this on refresh will pick descending order by default
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()

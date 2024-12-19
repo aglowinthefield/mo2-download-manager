@@ -17,3 +17,5 @@ class DownloadEntry(DictMixin):
     raw_file_path: Path
     raw_meta_path: Union[Path, None]  # 3.9 doesn't allow X | Y union
     file_size: float
+    nexus_mod_id: Union[int, None]
+    nexus_file_id: Union[int, None]

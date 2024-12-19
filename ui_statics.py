@@ -53,3 +53,6 @@ def bool_emoji(value: bool):
     if value:
         return "✅"
     return "🚫"
+
+def value_or_no(value: object):
+    return value if value else "🚫"
