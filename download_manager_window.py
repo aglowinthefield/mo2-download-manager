@@ -186,8 +186,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)
             self.hash_worker.hash_computed.connect(self._on_hash_complete)
 
-            self.hash_dialog.open() # Note: Using this instead of exec(). exec blocks main thread. Fights with hashing
-            self.hash_worker.run()
+            self.hash_worker.start()
+            self.hash_dialog.exec()
 
         self._table_model.requery_selected()
         self.refresh_data()
