@@ -40,14 +40,19 @@ improvements once I get my sea-legs with C++ and CMake.
 
 ## Building/Contributing
 
-Better instructions to come.
+This project uses [Poetry](https://python-poetry.org/) for building. It should be as simple as:
 
 `poetry install`
 
-If you want the pycharm debugger:
+If you want the pycharm debugger, follow the instructions in the `Python Debug Server` section of PyCharm run
+configurations if you want to use this
+functionality. It'll just silently move along without it. I install the debugger separately to let MO2 recognize
+it inside the plugin directory. Run below to do the same:
 
 `pip install -r requirements.txt -t libs`
 
-Follow the instructions in the `Python Debug Server` section of PyCharm run configurations if you want to use this
-functionality.
-It'll just silently move along without it.
+As of December 19, 2024 -- if you are using the latest version of PyCharm, you'll also want to follow
+this
+workaround: https://youtrack.jetbrains.com/issue/PY-77357/Python-Debug-Server-with-pydevd-pycharm-stopped-working-in-2024.3#focus=Change-27-11071318.0-0.pinned
+
+otherwise MO2 will simply freeze when you try to start it with the debug server enabled.
