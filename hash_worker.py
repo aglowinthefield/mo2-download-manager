@@ -1,19 +1,27 @@
 ﻿import hashlib
+from dataclasses import dataclass
 from pathlib import Path
+
+from .download_entry import DownloadEntry
 
 try:
     from PyQt6.QtCore import QThread, pyqtSignal
 except ImportError:
     from PyQt5.QtCore import QThread, pyqtSignal
 
+@dataclass
+class HashResult:
+    md5_hash: str
+    mod: DownloadEntry
 
 class HashWorker(QThread):
     progress_updated = pyqtSignal(int)
-    hash_computed = pyqtSignal(str)
+    hash_computed = pyqtSignal(HashResult)
 
-    def __init__(self, file_path, chunk_size=4096):
+    def __init__(self, mod: DownloadEntry, chunk_size=4096):
         super().__init__()
-        self.file_path = file_path
+        self.mod = mod
+        self.file_path = mod.raw_file_path
         self.chunk_size = chunk_size
 
     def run(self):
@@ -34,6 +42,6 @@ class HashWorker(QThread):
                         self.progress_updated.emit(progress)
                         last_update = progress
 
-            self.hash_computed.emit(hash_md5.hexdigest())
+            self.hash_computed.emit(HashResult(md5_hash=hash_md5.hexdigest(), mod=self.mod))
         except Exception as e:
             self.hash_computed.emit(f"Error: {e}")

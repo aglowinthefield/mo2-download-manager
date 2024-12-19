@@ -1,7 +1,7 @@
 ﻿import mobase
 
 from .download_manager_table_model import DownloadManagerTableModel
-from .hash_worker import HashWorker
+from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import get_qt_checked_value
 from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
 
@@ -186,18 +186,16 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
         for item in self._table_model.selected:
             self.hash_dialog = HashProgressDialog(self) # type: ignore
-            self.hash_worker = HashWorker(item.raw_file_path)
+            self.hash_worker = HashWorker(item)
             self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)
             self.hash_worker.hash_computed.connect(self._on_hash_complete)
 
             self.hash_worker.start()
             self.hash_dialog.exec()
 
-        self._table_model.requery_selected()
-        self.refresh_data()
-
-    def _on_hash_complete(self, result):
+    def _on_hash_complete(self, result: HashResult):
         self.hash_dialog.accept()
+        self._table_model.requery(result.mod, result.md5_hash)
         print(result)
 
     def delete_selected(self):

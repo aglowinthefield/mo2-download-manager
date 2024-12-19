@@ -160,20 +160,27 @@ class DownloadManagerModel:
         response = nexus_api.md5_lookup(md5_hash)
         logger.info(response)
         if response is not None:
+            # Create a new meta file for this download
             self._create_meta_from_mod_and_nexus_response(mod, response)
+            
+            # Create a new DownloadEntry for the meta file. Assuming the meta file now exists, we pass the raw_file_path
+            updated_entry: DownloadEntry = _process_file(mod.raw_file_path)
+            if updated_entry:
+                self.__data = [updated_entry if x == mod else x for x in self.__data]
+                # TODO: This should just be a filter on the table. Rework the table UI in the next version
+                self.__data_no_installed = [d for d in self.__data if not d.installed]
+
 
     def _create_meta_from_mod_and_nexus_response(
         self, mod: DownloadEntry, response: NexusMD5Response
-    ):
+    ) -> Path:
         meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_file_path.name}.meta")
 
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
-        # meta_file.beginGroup("General")
-
         meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
         meta_file.setValue("modID", response.mod.mod_id)
         meta_file.setValue("fileID", response.file_details.file_id)
-        meta_file.setValue("url", "")  # how?
+        meta_file.setValue("url", f"https://www.nexusmods.com/skyrimspecialedition/mods/{response.mod.mod_id}")
         meta_file.setValue("name", response.file_details.name)
         meta_file.setValue("description", response.mod.description)
         meta_file.setValue("modName", response.mod.name)
@@ -188,9 +195,8 @@ class DownloadManagerModel:
         meta_file.setValue("uninstalled", False)
         meta_file.setValue("paused", False)
         meta_file.setValue("removed", False)
-
-        # meta_file.endGroup()
         meta_file.sync()
+        return meta_file_name
 
     def install_mod(self, mod: DownloadEntry):
         mo2_version = self.__organizer.appVersion().canonicalString()

@@ -180,6 +180,12 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def get_selected(self):
         return self._selected
 
+    def requery(self, mod: DownloadEntry, md5_hash: str):
+        # TODO: Use index row and column instead of 'mod' here
+        self._model.requery(mod, md5_hash)
+        self._data = self._model.data
+        self.notify_table_updated()
+
     def select_duplicates(self):
         if self._model:
             self._selected = self._model.get_duplicates()
@@ -198,14 +204,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if self._model:
             self._model.bulk_install(self._selected)
             self.notify_table_updated()
-
-    def requery_selected(self):
-        return True
-        # for mod in self._selected:
-        #     # get md5 hash here
-        #     self._model.requery(mod)
-        # self.notify_table_updated()
-
 
     def delete_selected(self):
         if self._model:
