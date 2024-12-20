@@ -1,7 +1,7 @@
 ﻿import http.client
 import json
 from dataclasses import dataclass
-from typing import Union
+from typing import List, Union
 
 from .class_helpers import DictMixin
 from .util import logger
@@ -9,7 +9,7 @@ from .util import logger
 
 @dataclass
 class NexusFileDetails(DictMixin):
-    id: list[int]
+    id: List[int]
     uid: int
     file_id: int
     name: str
@@ -118,10 +118,9 @@ class NexusApi:
             )
             if isinstance(response, list):
                 return _md5_response_to_class(response[0])
-            elif isinstance(response, dict):
+            if isinstance(response, dict):
                 return _md5_response_to_class(response)
-            else:
-                return None
+            return None
         except Exception as e:
             logger.error(e)
             return None

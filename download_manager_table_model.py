@@ -1,5 +1,5 @@
 ﻿from datetime import datetime
-from typing import Callable, Dict, List
+from typing import Callable, Dict, List, Set
 
 import mobase
 
@@ -39,7 +39,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _model: DownloadManagerModel = None
-    _selected: set[DownloadEntry] = set()
+    _selected: Set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
@@ -64,7 +64,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def init_data(self, data: List[DownloadEntry]):
         self._data = data
         self._selected.clear()
-        self.notify_table_updated()
+        self._notify_table_updated()
         self.layoutChanged.emit()
 
     def headerData(self, section, _orientation, role=...):
@@ -184,26 +184,26 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         # TODO: Use index row and column instead of 'mod' here
         self._model.requery(mod, md5_hash)
         self._data = self._model.data
-        self.notify_table_updated()
+        self._notify_table_updated()
 
     def select_duplicates(self):
         if self._model:
             self._selected = self._model.get_duplicates()
-            self.notify_table_updated()
+            self._notify_table_updated()
 
     def select_all(self):
         for item in self._data:
             self._selected.add(item)
-        self.notify_table_updated()
+        self._notify_table_updated()
 
     def select_none(self):
         self._selected.clear()
-        self.notify_table_updated()
+        self._notify_table_updated()
 
     def install_selected(self):
         if self._model:
             self._model.bulk_install(self._selected)
-            self.notify_table_updated()
+            self._notify_table_updated()
 
     def delete_selected(self):
         if self._model:
@@ -219,7 +219,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._data = self._model.data_no_installed
         else:
             self._data = self._model.data
-        self.notify_table_updated()
+        self._notify_table_updated()
 
     # TODO: Optimize this method. We don't need to call it that often and it can definitely be smarter when we do.
     def refresh(self):
@@ -227,7 +227,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self._data = self._model.data
         self.init_data(self._data)
 
-    def notify_table_updated(self):
+    def _notify_table_updated(self):
         self.dataChanged.emit(
             self.index(0, 0),
             self.index(len(self._data) - 1, len(self._header) - 1),
