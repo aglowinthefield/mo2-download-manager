@@ -11,6 +11,7 @@ def sizeof_fmt(num, suffix="B"):
         num /= 1024.0
     return f"{num:.1f}Yi{suffix}"
 
+
 def create_logger() -> None:
     """
     Creates a logger with a file handler and sets it to the DEBUG level.

@@ -1,7 +1,7 @@
 ﻿import mobase
 
-from .util import logger
 from .download_manager_window import DownloadManagerWindow
+from .util import logger
 
 try:
     import PyQt6.QtGui as QtGui
@@ -31,7 +31,6 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         self.__window.setWindowTitle(f"{self.NAME} v{self.version().displayString()}")
         self.__window.exec()
 
-    # pylint:disable=invalid-name
     def displayName(self):
         return self.NAME
 
@@ -51,7 +50,9 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         return self.NAME
 
     def settings(self):
-        return []
+        return [
+            mobase.PluginSetting("nexusApiKey", "Nexus API Key", "")
+        ]
 
     def version(self):
         return mobase.VersionInfo(1, 0, 0)

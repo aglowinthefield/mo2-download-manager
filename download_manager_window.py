@@ -1,17 +1,19 @@
 ﻿import mobase
 
-from .mo2_compat_utils import get_qt_checked_value
 from .download_manager_table_model import DownloadManagerTableModel
-from .ui_statics import create_basic_table_widget, button_with_handler
+from .hash_worker import HashResult, HashWorker
+from .mo2_compat_utils import get_qt_checked_value
+from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
 
 try:
     import PyQt6.QtWidgets as QtWidgets
+    from PyQt6.QtGui import QAction
     from PyQt6.QtCore import Qt
-    from PyQt6.QtWidgets import QApplication, QSizePolicy
+    from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
-    from PyQt5.QtWidgets import QApplication, QSizePolicy
+    from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction
 
 
 def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
@@ -28,26 +30,35 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     BUTTON_TEXT = {
         "INSTALL": lambda count: f"Install Selected ({count})",
+        "REQUERY": lambda count: f"Re-query Selected ({count})",
         "DELETE": lambda count: f"Delete Selected ({count})",
-        "HIDE": lambda count: f"Mark Hidden ({count})"
+        "HIDE": lambda count: f"Mark Hidden ({count})",
     }
 
     __initialized: bool = False
+    __organizer: mobase.IOrganizer = None
+    hash_worker = None
+    hash_dialog = None
+    _has_resized = False
+    _is_refreshing = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         try:
             super().__init__(parent)
 
+            self.__organizer = organizer
+
             self._table_model = DownloadManagerTableModel(organizer)
             self._table_widget = self.create_table_widget()
 
-            main_layout = QtWidgets.QHBoxLayout()
+            self._main_layout = QtWidgets.QHBoxLayout()
 
             self._wrapper_left = QtWidgets.QWidget()
 
             # This area has the select/refresh/table operations fields
             layout_left = QtWidgets.QVBoxLayout()
-            layout_left.addWidget(self.create_refresh_button())
+            self._refresh_button = self.create_refresh_button()
+            layout_left.addWidget(self._refresh_button)
             layout_left.addWidget(self.create_select_duplicates_button())
             layout_left.addWidget(self.create_select_all_button())
             layout_left.addWidget(self.create_select_none_button())
@@ -58,11 +69,13 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
             layout_left.addItem(spacer)
 
-            self._install_button = self.create_install_button()
-            self._hide_button    = self.create_hide_button()
-            self._delete_button  = self.create_delete_button()
+            self._install_button = self._create_install_button()
+            self._requery_button = self._create_requery_button()
+            self._hide_button = self._create_hide_button()
+            self._delete_button = self._create_delete_button()
 
             layout_left.addWidget(self._install_button)
+            layout_left.addWidget(self._requery_button)
             layout_left.addWidget(self._hide_button)
             layout_left.addWidget(self._delete_button)
 
@@ -74,15 +87,16 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
 
-            main_layout.addWidget(self._wrapper_left)
-            main_layout.addWidget(self._wrapper_right)
+            self._main_layout.addWidget(self._wrapper_left)
+            self._main_layout.addWidget(self._wrapper_right)
 
             # Dimensions / ratios
-            main_layout.setStretch(0, 1)  # Buttons
-            main_layout.setStretch(1, 6)  # Table
+            self._main_layout.setStretch(0, 1)  # Buttons
+            self._main_layout.setStretch(1, 6)  # Table
 
-            self.setLayout(main_layout)
+            self.setLayout(self._main_layout)
             self.setMinimumSize(1024, 768)
+            self._center_window()
 
             self._table_model.dataChanged.connect(self.update_button_states)
 
@@ -94,14 +108,26 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
 
     # region UI - Download Operations
-    def create_delete_button(self):
-        return button_with_handler("Delete Selected", self, self.delete_selected)
+    def _create_delete_button(self):
+        return button_with_handler(
+            self.BUTTON_TEXT["DELETE"](0), self, self.delete_selected
+        )
 
-    def create_install_button(self):
-        return button_with_handler("Install Selected", self, self.install_selected)
+    def _create_install_button(self):
+        return button_with_handler(
+            self.BUTTON_TEXT["INSTALL"](0), self, self.install_selected
+        )
 
-    def create_hide_button(self):
-        return button_with_handler("Mark Hidden", self, self.hide_selected)
+    def _create_requery_button(self):
+        return button_with_handler(
+            self.BUTTON_TEXT["REQUERY"](0), self, self.requery_selected
+        )
+
+    def _create_hide_button(self):
+        return button_with_handler(
+            self.BUTTON_TEXT["HIDE"](0), self, self.hide_selected
+        )
+
     # endregion
 
     # region UI - Table Operations
@@ -111,19 +137,24 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return hide_installed_checkbox
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
-        self._table_model.toggle_show_installed(checked == get_qt_checked_value(Qt.CheckState.Checked))
+        self._table_model.toggle_show_installed(
+            checked == get_qt_checked_value(Qt.CheckState.Checked)
+        )
 
     def create_refresh_button(self):
         return button_with_handler("Refresh", self, self.refresh_data)
 
     def create_select_duplicates_button(self):
-        return button_with_handler("Select Old Duplicates", self, self._table_model.select_duplicates)
+        return button_with_handler(
+            "Select Old Duplicates", self, self._table_model.select_duplicates
+        )
 
     def create_select_all_button(self):
         return button_with_handler("Select All", self, self._table_model.select_all)
 
     def create_select_none_button(self):
         return button_with_handler("Select None", self, self._table_model.select_none)
+
     # endregion
 
     # region UI change handler
@@ -134,18 +165,38 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def _toggle_button_operations(self, selected_count):
         self._hide_button.setEnabled(selected_count > 0)
         self._delete_button.setEnabled(selected_count > 0)
+        self._requery_button.setEnabled(selected_count > 0)
         self._install_button.setEnabled(selected_count > 0)
 
         self._hide_button.setText(self.BUTTON_TEXT["HIDE"](selected_count))
+        self._requery_button.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
         self._delete_button.setText(self.BUTTON_TEXT["DELETE"](selected_count))
         self._install_button.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
 
-
     # endregion
 
+    # region
     def install_selected(self):
         self._table_model.install_selected()
         self.refresh_data()
+
+    def requery_selected(self):
+        if not self._validate_nexus_api_key():
+            return
+
+        for item in self._table_model.selected:
+            self.hash_dialog = HashProgressDialog(self) # type: ignore
+            self.hash_worker = HashWorker(item)
+            self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)
+            self.hash_worker.hash_computed.connect(self._on_hash_complete)
+
+            self.hash_worker.start()
+            self.hash_dialog.exec()
+
+    def _on_hash_complete(self, result: HashResult):
+        self.hash_dialog.accept()
+        self._table_model.requery(result.mod, result.md5_hash)
+        print(result)
 
     def delete_selected(self):
         self._table_model.delete_selected()
@@ -156,15 +207,17 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
-        self.setUpdatesEnabled(False)
+        self._refresh_button.setEnabled(False)
         self._table_model.refresh()
-        self.resize_window()
+        if not self._has_resized:
+            self.resize_window()
+            self._has_resized = True
         self.reapply_sort()
-        self.setUpdatesEnabled(True)
+        self._refresh_button.setEnabled(True)
+
+    # endregion
 
     def reapply_sort(self):
-        if not self.__initialized:
-            return
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()
@@ -173,6 +226,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def create_table_widget(self):
         table = create_basic_table_widget()
         table.setModel(self._table_model)
+        table.setSortingEnabled(True)
+        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         return table
 
     def resize_window(self):
@@ -187,7 +242,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         header = self._table_widget.horizontalHeader()
         for column in range(self._table_widget.model().columnCount()):
             header.setSectionResizeMode(column, resize_mode)
-            actual_width = header.sectionSize(column)
+
+            header_width = header.sectionSize(column)
+            content_width = self._table_widget.columnWidth(column)
+
+            actual_width = max(header_width, content_width)
+
             if actual_width > max_column_width:
                 header.setSectionResizeMode(
                     column, QtWidgets.QHeaderView.ResizeMode.Interactive
@@ -195,22 +255,53 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 header.resizeSection(column, max_column_width)
 
         # Make sure window doesn't get tall af
-        screen = QApplication.primaryScreen()
-        screen_geometry = screen.availableGeometry()
-        screen_height = screen_geometry.height()
-
-        # Maximum height: 80% of screen height
+        screen_height = QApplication.primaryScreen().availableGeometry().height()
         max_height = int(screen_height * 0.5)
 
-        table_size = self._table_widget.sizeHint()
+        table_size = self._wrapper_right.sizeHint()
         button_size = self._wrapper_left.sizeHint()
         new_height = min(table_size.height() + padding, max_height)
 
         # Resize window to fit the table with the new height constraint
-        self.resize(
-            table_size.width() + button_size.width() + (padding * 2), new_height
-        )
+        new_width = table_size.width() + button_size.width() + (padding * 3)
+        self.resize(new_width, new_height)
+        self._center_window()
 
+    def _center_window(self):
+        screen = QApplication.primaryScreen().availableGeometry()
+        this_window = self.frameGeometry()
+        this_window.moveCenter(screen.center())
+        self.move(this_window.topLeft())
+
+    def contextMenuEvent(self, event):
+        context_menu = QMenu(self)
+        select_action = QAction("Select", self)
+        select_action.triggered.connect(self._select_from_context) # type: ignore
+        context_menu.addAction(select_action)
+        context_menu.exec(event.globalPos())
+
+    def _select_from_context(self):
+        self.setUpdatesEnabled(False)
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model or len(selection_model.selectedIndexes()) == 0:
+            return
+        for index in selection_model.selectedIndexes():
+            self._table_model.select_at_index(index)
+        self.setUpdatesEnabled(True)
+
+    def _validate_nexus_api_key(self):
+        api_key: str = self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
+        if api_key:
+            return True
+        show_error(
+            "Please add your API key in plugin settings and try again. "
+            "See the README/Nexus page for information.",
+            "Nexus API key not found")
+        return False
+
+    #################
+    # Required by MO2
+    #################
     @staticmethod
     def init():
         """MO2 requires this fn be present for QDialog."""

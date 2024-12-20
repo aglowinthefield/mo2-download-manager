@@ -1,12 +1,14 @@
 ﻿from datetime import datetime
-from typing import List
+from typing import Callable, Dict, List
 
 import mobase
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from .util import logger, sizeof_fmt
+from .hash_worker import HashWorker
 from .mo2_compat_utils import get_qt_checked_value
+from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
+from .util import logger, sizeof_fmt
 
 try:
     import PyQt6.QtCore as QtCore
@@ -17,11 +19,12 @@ except ImportError:
     from PyQt5.QtCore import Qt, QModelIndex
     from PyQt5.QtGui import QColor
 
+
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
-    COLUMN_MAPPING = {
+    COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], object]] = {
         0: lambda item: item.name,
         1: lambda item: item.modname,
         2: lambda item: item.filename,
@@ -29,19 +32,33 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         4: lambda item: item.version,
         5: lambda item: item.file_size,
         6: lambda item: item.installed,
+        7: lambda item: item.nexus_mod_id,
+        8: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
     _data: List[DownloadEntry] = []
     _model: DownloadManagerModel = None
-    _selected = set()
+    _selected: set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?")
-    _columnFields = ["name", "modname", "filename", "filetime", "version", "file_size", "installed"]
+    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
+    _columnFields = [
+        "name",
+        "modname",
+        "filename",
+        "filetime",
+        "version",
+        "file_size",
+        "installed",
+        "nexus_mod_id",
+        "nexus_file_id"
+    ]
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
+        self.hash_worker: HashWorker
+        self.hash_dialog: HashProgressDialog
         self._model = DownloadManagerModel(organizer)
 
     def init_data(self, data: List[DownloadEntry]):
@@ -50,7 +67,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.notify_table_updated()
         self.layoutChanged.emit()
 
-    # pylint:disable=invalid-name
     def headerData(self, section, _orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
             if section > len(self._header) - 1:
@@ -59,18 +75,19 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return self._header[section]
         return None
 
-    # pylint:disable=invalid-name
     def columnCount(self, _parent=...):
-        return 7
+        return len(self._header)
 
-    # pylint:disable=invalid-name
     def rowCount(self, _parent=QtCore.QModelIndex()):
         return len(self._data)
 
     def _render_column(self, item, index):
         if item is None:
             logger.info(
-                "Received null item for row " + index.row() + " and column " + index.column()
+                "Received null item for row "
+                + index.row()
+                + " and column "
+                + index.column()
             )
             return None
 
@@ -84,9 +101,11 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         if column == 5:
             return sizeof_fmt(column_value)
+        if isinstance(column_value, bool):
+            return bool_emoji(column_value)
         if isinstance(column_value, datetime):
             return column_value.strftime("%Y-%m-%d %H:%M:%S")
-        return column_value
+        return value_or_no(column_value)
 
     def data(self, index: QModelIndex, role: int = ...):
         row = index.row()
@@ -124,6 +143,13 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             return True
         return False
 
+    def select_at_index(self, index: QModelIndex):
+        selected_data = self._data[index.row()]
+        if selected_data not in self._selected:
+            self._selected.add(selected_data)
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
     def flags(self, index: QModelIndex):
         if not index.isValid():
             # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
@@ -142,15 +168,23 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def sort(self, column, order=...):
         self.layoutAboutToBeChanged.emit()
         self._data.sort(
-            key=lambda row: (float(row[self._columnFields[column]])
-                         if isinstance(row[self._columnFields[column]], (int, float))
-                         else str(row[self._columnFields[column]]).lower()),
+            key=lambda row: (
+                float(row[self._columnFields[column]])
+                if isinstance(row[self._columnFields[column]], (int, float))
+                else str(row[self._columnFields[column]]).lower()
+            ),
             reverse=(order == Qt.SortOrder.DescendingOrder),
         )
         self.layoutChanged.emit()
 
     def get_selected(self):
         return self._selected
+
+    def requery(self, mod: DownloadEntry, md5_hash: str):
+        # TODO: Use index row and column instead of 'mod' here
+        self._model.requery(mod, md5_hash)
+        self._data = self._model.data
+        self.notify_table_updated()
 
     def select_duplicates(self):
         if self._model:
@@ -187,6 +221,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._data = self._model.data
         self.notify_table_updated()
 
+    # TODO: Optimize this method. We don't need to call it that often and it can definitely be smarter when we do.
     def refresh(self):
         self._model.refresh()
         self._data = self._model.data
@@ -197,3 +232,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self.index(0, 0),
             self.index(len(self._data) - 1, len(self._header) - 1),
         )
+
+    @property
+    def selected(self):
+        return self._selected
