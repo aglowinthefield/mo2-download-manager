@@ -227,6 +227,10 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self._data = self._model.data
         self.init_data(self._data)
 
+
+    def _notify_index_updated(self, index: QModelIndex):
+        self.dataChanged.emit(index, index)
+
     def _notify_table_updated(self):
         self.dataChanged.emit(
             self.index(0, 0),

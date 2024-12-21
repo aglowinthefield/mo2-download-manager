@@ -70,16 +70,18 @@ def _process_file(path):
     if not os.path.exists(normalized_path):
         print(f"File not found: {normalized_path}")
         return None
-
     return _file_path_to_download_entry(normalized_path)
 
+def _matches_seq_item(seq_item: str, *args):
+    for arg in args:
+        if seq_item == arg:
+            return True
+    return False
 
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
     __data: List[DownloadEntry]
     __data_no_installed: List[DownloadEntry]
-
-    __files: List[str] = []
 
     def __init__(self, organizer: mobase.IOrganizer):
         self.__organizer = organizer
@@ -87,15 +89,15 @@ class DownloadManagerModel:
         self.__data_no_installed = []
 
     def refresh(self):
-        self.__files = self.collect_archive_files()
-        self._read_meta_files()
+        files: List[str] = self._collect_archive_files()
+        self._read_meta_files(files)
         self.__data_no_installed = [d for d in self.__data if not d.installed]
 
-    def _read_meta_files(self):
+    def _read_meta_files(self, files: List[str]):
         self.__data = []
         with ThreadPoolExecutor() as executor:
             futures = []
-            for f in self.__files:
+            for f in files:
                 futures.append(executor.submit(_process_file, f))
 
             for future in futures:
@@ -105,7 +107,7 @@ class DownloadManagerModel:
                 else:
                     logger.info("Entry broken. Should not happen.")
 
-    def collect_archive_files(self):
+    def _collect_archive_files(self):
         directory_path = Path(self.__organizer.downloadsPath())
         extensions = ["*.zip", "*.7z", "*.rar", "*.7zip"]
         files = [
@@ -158,11 +160,9 @@ class DownloadManagerModel:
             self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
         )
         response = nexus_api.md5_lookup(md5_hash)
-        logger.info(response)
         if response is not None:
             # Create a new meta file for this download
             self._create_meta_from_mod_and_nexus_response(mod, response)
-            
             # Create a new DownloadEntry for the meta file. Assuming the meta file now exists, we pass the raw_file_path
             updated_entry: DownloadEntry = _process_file(mod.raw_file_path)
             if updated_entry:
@@ -176,14 +176,23 @@ class DownloadManagerModel:
     ) -> Path:
         meta_file_name = mod.raw_file_path.with_name(f"{mod.raw_file_path.name}.meta")
 
+        name = response.file_details.name
+        mod_name = response.mod.name
+
+        # check if mod installed using possible guessed names. might not be perfect. might be bad! who knows.
+        mod_list = self.__organizer.modList()
+        all_mods = mod_list.allMods()
+        match = next((m for m in all_mods if _matches_seq_item(m, name, mod_name)), None)
+        installed = match is not None
+
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
         meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
         meta_file.setValue("modID", response.mod.mod_id)
         meta_file.setValue("fileID", response.file_details.file_id)
         meta_file.setValue("url", f"https://www.nexusmods.com/skyrimspecialedition/mods/{response.mod.mod_id}")
-        meta_file.setValue("name", response.file_details.name)
+        meta_file.setValue("name", name)
         meta_file.setValue("description", response.mod.description)
-        meta_file.setValue("modName", response.mod.name)
+        meta_file.setValue("modName", mod_name)
         meta_file.setValue("version", response.file_details.version)
         meta_file.setValue("newestVersion", "")  # omit?
         meta_file.setValue("fileTime", QDateTime.currentDateTime())
@@ -191,7 +200,7 @@ class DownloadManagerModel:
         meta_file.setValue("category", response.mod.category_id)
         meta_file.setValue("repository", "Nexus")
         meta_file.setValue("userData", QVariant(response.mod.user))
-        meta_file.setValue("installed", False)
+        meta_file.setValue("installed", installed)
         meta_file.setValue("uninstalled", False)
         meta_file.setValue("paused", False)
         meta_file.setValue("removed", False)
