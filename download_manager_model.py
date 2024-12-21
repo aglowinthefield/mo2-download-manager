@@ -186,7 +186,7 @@ class DownloadManagerModel:
         installed = match is not None
 
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
-        meta_file.setValue("gameName", self.__organizer.managedGame().gameName())
+        meta_file.setValue("gameName", self.__organizer.managedGame().gameShortName())
         meta_file.setValue("modID", response.mod.mod_id)
         meta_file.setValue("fileID", response.file_details.file_id)
         meta_file.setValue("url", f"https://www.nexusmods.com/skyrimspecialedition/mods/{response.mod.mod_id}")
