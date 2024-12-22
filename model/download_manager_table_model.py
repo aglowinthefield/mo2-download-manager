@@ -181,7 +181,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return self._selected
 
     def requery(self, mod: DownloadEntry, md5_hash: str):
-        # TODO: Use index row and column instead of 'mod' here
         self._model.requery(mod, md5_hash)
         self._data = self._model.data
         self._notify_table_updated()
@@ -221,7 +220,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._data = self._model.data
         self._notify_table_updated()
 
-    # TODO: Optimize this method. We don't need to call it that often and it can definitely be smarter when we do.
     def refresh(self):
         self._model.refresh()
         self._data = self._model.data

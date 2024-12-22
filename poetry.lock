@@ -16,13 +16,13 @@ typing-extensions = {version = ">=4.0.0", markers = "python_version < \"3.11\""}
 
 [[package]]
 name = "astroid"
-version = "3.3.6"
+version = "3.3.7"
 description = "An abstract syntax tree for Python with inference support."
 optional = false
 python-versions = ">=3.9.0"
 files = [
-    {file = "astroid-3.3.6-py3-none-any.whl", hash = "sha256:db676dc4f3ae6bfe31cda227dc60e03438378d7a896aec57422c95634e8d722f"},
-    {file = "astroid-3.3.6.tar.gz", hash = "sha256:6aaea045f938c735ead292204afdb977a36e989522b7833ef6fea94de743f442"},
+    {file = "astroid-3.3.7-py3-none-any.whl", hash = "sha256:e1ea2c358a3c760ef583d4963e773100fa2c693b27ed158a1d0e81adb4436903"},
+    {file = "astroid-3.3.7.tar.gz", hash = "sha256:29fe1df7ef64dc17a54dbfad67b40b445340fcdba7c4012e7ecc9270c9b2f5b6"},
 ]
 
 [package.dependencies]
@@ -119,16 +119,6 @@ files = [
 docs = ["furo (>=2024.8.6)", "proselint (>=0.14)", "sphinx (>=8.0.2)", "sphinx-autodoc-typehints (>=2.4)"]
 test = ["appdirs (==1.4.4)", "covdefaults (>=2.3)", "pytest (>=8.3.2)", "pytest-cov (>=5)", "pytest-mock (>=3.14)"]
 type = ["mypy (>=1.11.2)"]
-
-[[package]]
-name = "pydevd-pycharm"
-version = "243.22562.180"
-description = "PyCharm Debugger (used in PyCharm and PyDev)"
-optional = false
-python-versions = "*"
-files = [
-    {file = "pydevd_pycharm-243.22562.180.tar.gz", hash = "sha256:5e289bcc75e31875de62df4dcfa12ecfebd663709437d10ecc8f70d7bcffd36d"},
-]
 
 [[package]]
 name = "pylint"
@@ -343,4 +333,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.8.0,<3.13"
-content-hash = "f906c0e1b2ef9b5f0245327efd17bcb37234994677d4e96c4c2d1caf12cb8792"
+content-hash = "8ee03b3c73ae349b652422341c1a2bd7588ddd22c49c783604aa7e9c1c075234"

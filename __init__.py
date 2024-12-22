@@ -4,7 +4,7 @@ import sys
 from .plugin.download_manager_plugin import DownloadManagerPlugin
 from .util.util import create_logger, logger
 
-lib_dir = os.path.join(os.path.dirname(__file__), "debug")
+lib_dir = os.path.join(os.path.dirname(__file__), "libs")
 sys.path.append(lib_dir)
 
 create_logger()

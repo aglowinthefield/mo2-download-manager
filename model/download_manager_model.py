@@ -7,8 +7,8 @@ from typing import List
 
 import mobase
 
-from ..api.nexus_api import NexusApi, NexusMD5Response
 from ..model.download_entry import DownloadEntry
+from ..nexus.nexus_api import NexusApi, NexusMD5Response
 from ..util.mo2_compat_utils import is_above_2_4
 from ..util.util import logger
 
@@ -66,11 +66,15 @@ def _file_path_to_stub(normalized_path: Path):
 
 
 def _process_file(path):
-    normalized_path = os.path.normpath(path)
-    if not os.path.exists(normalized_path):
-        print(f"File not found: {normalized_path}")
+    try:
+        normalized_path = os.path.normpath(path)
+        if not os.path.exists(normalized_path):
+            print(f"File not found: {normalized_path}")
+            return None
+        return _file_path_to_download_entry(normalized_path)
+    except Exception as e:
+        logger.error(f"Error processing file {path}: {e}")
         return None
-    return _file_path_to_download_entry(normalized_path)
 
 def _matches_seq_item(seq_item: str, *args):
     for arg in args:
