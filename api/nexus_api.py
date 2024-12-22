@@ -3,8 +3,8 @@ import json
 from dataclasses import dataclass
 from typing import List, Union
 
-from .class_helpers import DictMixin
-from .util import logger
+from ..util.class_helpers import DictMixin
+from ..util.util import logger
 
 
 @dataclass

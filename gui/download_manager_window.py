@@ -1,9 +1,9 @@
 ﻿import mobase
 
-from .download_manager_table_model import DownloadManagerTableModel
-from .hash_worker import HashResult, HashWorker
-from .mo2_compat_utils import get_qt_checked_value
-from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
+from ..gui.hash_worker import HashResult, HashWorker
+from ..gui.ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
+from ..model.download_manager_table_model import DownloadManagerTableModel
+from ..util.mo2_compat_utils import get_qt_checked_value
 
 try:
     import PyQt6.QtWidgets as QtWidgets

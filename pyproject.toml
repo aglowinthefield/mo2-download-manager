@@ -2,7 +2,7 @@
 name = "mo2-download-manager"
 version = "1.2.0"
 description = "Adds a few new features to manage downloads within MO2"
-authors = ["aglowinthefield <tom.auty+nexus@gmail.com>"]
+authors = ["aglowinthefield"]
 license = "MIT"
 readme = "README.md"
 package-mode = false
@@ -19,7 +19,6 @@ pylint = [
     { version = "^3.3.2", python = ">=3.9" },
     { version = "3.2.7", python = "< 3.9" }
 ]
-#pydevd-pycharm = "~=243.22562.180"
 
 
 [build-system]

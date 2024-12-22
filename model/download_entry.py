@@ -3,7 +3,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Union
 
-from .class_helpers import DictMixin
+from ..util.class_helpers import DictMixin
 
 
 @dataclass(frozen=True)

@@ -7,10 +7,10 @@ from typing import List
 
 import mobase
 
-from .download_entry import DownloadEntry
-from .mo2_compat_utils import is_above_2_4
-from .nexus_api import NexusApi, NexusMD5Response
-from .util import logger
+from ..api.nexus_api import NexusApi, NexusMD5Response
+from ..model.download_entry import DownloadEntry
+from ..util.mo2_compat_utils import is_above_2_4
+from ..util.util import logger
 
 try:
     from PyQt6.QtCore import QSettings, QDateTime, QVariant

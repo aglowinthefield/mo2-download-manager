@@ -1,7 +1,7 @@
 ﻿import mobase
 
-from .download_manager_window import DownloadManagerWindow
-from .util import logger
+from ..gui.download_manager_window import DownloadManagerWindow
+from ..util.util import logger
 
 try:
     import PyQt6.QtGui as QtGui

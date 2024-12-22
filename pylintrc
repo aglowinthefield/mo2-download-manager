@@ -14,5 +14,5 @@ disable=import-error,
     too-many-instance-attributes,
     consider-using-from-import,
     expression-not-assigned
-ignore-patterns=libs,venv
+ignore-patterns=libs,venv,debug
 max-line-length=120

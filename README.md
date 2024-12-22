@@ -59,7 +59,7 @@ configurations if you want to use this
 functionality. It'll just silently move along without it. I install the debugger separately to let MO2 recognize
 it inside the plugin directory. Run below to do the same:
 
-`pip install -r requirements.txt -t libs`
+`pip install -r requirements.txt -t debug`
 
 As of December 19, 2024 -- if you are using the latest version of PyCharm, you'll also want to follow
 this

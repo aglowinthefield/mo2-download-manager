@@ -5,10 +5,10 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from .hash_worker import HashWorker
-from .mo2_compat_utils import get_qt_checked_value
-from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
-from .util import logger, sizeof_fmt
+from ..gui.hash_worker import HashWorker
+from ..gui.ui_statics import HashProgressDialog, bool_emoji, value_or_no
+from ..util.mo2_compat_utils import get_qt_checked_value
+from ..util.util import logger, sizeof_fmt
 
 try:
     import PyQt6.QtCore as QtCore
