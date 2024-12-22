@@ -55,4 +55,4 @@ def bool_emoji(value: bool):
     return "🚫"
 
 def value_or_no(value: object):
-    return value if value else "🚫"
+    return value if value else "❔"

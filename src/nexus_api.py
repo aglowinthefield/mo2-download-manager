@@ -3,8 +3,7 @@ import json
 from dataclasses import dataclass
 from typing import List, Union
 
-from ..util.class_helpers import DictMixin
-from ..util.util import logger
+from .util import DictMixin, logger
 
 
 @dataclass
@@ -90,7 +89,7 @@ def _md5_response_to_class(response_json) -> NexusMD5Response:
 
 class NexusApi:
 
-    _BASE_URL = "nexus.nexusmods.com"
+    _BASE_URL = "api.nexusmods.com"
     _API_KEY_HEADER = "apiKey"
 
     _PATHS = {

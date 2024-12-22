@@ -5,10 +5,10 @@ import mobase
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from ..gui.hash_worker import HashWorker
-from ..gui.ui_statics import HashProgressDialog, bool_emoji, value_or_no
-from ..util.mo2_compat_utils import get_qt_checked_value
-from ..util.util import logger, sizeof_fmt
+from .hash_worker import HashWorker
+from .mo2_compat_utils import get_qt_checked_value
+from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
+from .util import logger, sizeof_fmt
 
 try:
     import PyQt6.QtCore as QtCore
@@ -24,7 +24,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
-    COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], object]] = {
+    COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], str]] = {
         0: lambda item: item.name,
         1: lambda item: item.modname,
         2: lambda item: item.filename,
@@ -43,17 +43,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     # Remove selected from the DownloadEntry model. Not necessary
     _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
-    _columnFields = [
-        "name",
-        "modname",
-        "filename",
-        "filetime",
-        "version",
-        "file_size",
-        "installed",
-        "nexus_mod_id",
-        "nexus_file_id"
-    ]
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
@@ -82,24 +71,14 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return len(self._data)
 
     def _render_column(self, item, index):
-        if item is None:
-            logger.info(
-                "Received null item for row "
-                + index.row()
-                + " and column "
-                + index.column()
-            )
-            return None
-
-        column = index.column()
-        get_value = self.COLUMN_MAPPING.get(column)
+        get_value = self.COLUMN_MAPPING.get(index.column())
 
         if get_value is None:
             return None
 
         column_value = get_value(item)
 
-        if column == 5:
+        if index.column() == 5:
             return sizeof_fmt(column_value)
         if isinstance(column_value, bool):
             return bool_emoji(column_value)
@@ -108,8 +87,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return value_or_no(column_value)
 
     def data(self, index: QModelIndex, role: int = ...):
-        row = index.row()
-        item = self._data[row]
+        item = self._data[index.row()]
 
         # Decorative roles will go first to ensure they are applied evenly across columns
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
@@ -169,9 +147,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self.layoutAboutToBeChanged.emit()
         self._data.sort(
             key=lambda row: (
-                float(row[self._columnFields[column]])
-                if isinstance(row[self._columnFields[column]], (int, float))
-                else str(row[self._columnFields[column]]).lower()
+                float(self.COLUMN_MAPPING[column](row))
+                if isinstance(self.COLUMN_MAPPING[column](row), (int, float))
+                else str(self.COLUMN_MAPPING[column](row)).lower()
             ),
             reverse=(order == Qt.SortOrder.DescendingOrder),
         )

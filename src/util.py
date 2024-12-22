@@ -4,6 +4,13 @@ from pathlib import Path
 
 logger: logging.Logger = logging.getLogger("DownloadManager")
 
+class DictMixin:
+    def __getitem__(self, key):
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        setattr(self, key, value)
+
 def sizeof_fmt(num, suffix="B"):
     for unit in ("", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"):
         if abs(num) < 1024.0:

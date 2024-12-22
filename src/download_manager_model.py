@@ -7,10 +7,10 @@ from typing import List
 
 import mobase
 
-from ..model.download_entry import DownloadEntry
-from ..nexus.nexus_api import NexusApi, NexusMD5Response
-from ..util.mo2_compat_utils import is_above_2_4
-from ..util.util import logger
+from .download_entry import DownloadEntry
+from .mo2_compat_utils import is_above_2_4
+from .nexus_api import NexusApi, NexusMD5Response
+from .util import logger
 
 try:
     from PyQt6.QtCore import QSettings, QDateTime, QVariant
@@ -76,9 +76,9 @@ def _process_file(path):
         logger.error(f"Error processing file {path}: {e}")
         return None
 
-def _matches_seq_item(seq_item: str, *args):
+def _matches_seq_item(seq_item: str, *args: str):
     for arg in args:
-        if seq_item == arg:
+        if seq_item.lower() == arg.lower():
             return True
     return False
 
@@ -171,7 +171,6 @@ class DownloadManagerModel:
             updated_entry: DownloadEntry = _process_file(mod.raw_file_path)
             if updated_entry:
                 self.__data = [updated_entry if x == mod else x for x in self.__data]
-                # TODO: This should just be a filter on the table. Rework the table UI in the next version
                 self.__data_no_installed = [d for d in self.__data if not d.installed]
 
 

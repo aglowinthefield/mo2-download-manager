@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..model.download_entry import DownloadEntry
+from .download_entry import DownloadEntry
 
 try:
     from PyQt6.QtCore import QThread, pyqtSignal
