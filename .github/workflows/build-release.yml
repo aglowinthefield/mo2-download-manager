@@ -22,6 +22,7 @@ jobs:
           && mkdir mo2-download-manager
           && cd ../..
           && cp *.py ./build/plugins/mo2-download-manager
+          && cp -r src ./build/plugins/mo2-download-manager
           && cp README.md ./build/plugins/mo2-download-manager
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
