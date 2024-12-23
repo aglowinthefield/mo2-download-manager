@@ -203,10 +203,10 @@ class DownloadManagerModel:
         meta_file.setValue("category", response.mod.category_id)
         meta_file.setValue("repository", "Nexus")
         meta_file.setValue("userData", QVariant(response.mod.user))
-        meta_file.setValue("installed", installed)
-        meta_file.setValue("uninstalled", False)
-        meta_file.setValue("paused", False)
-        meta_file.setValue("removed", False)
+        meta_file.setValue("installed", str(installed).lower())
+        meta_file.setValue("uninstalled", "false")
+        meta_file.setValue("paused", "false")
+        meta_file.setValue("removed", "false") # read settings to see if DLs are hidden?
         meta_file.sync()
         return meta_file_name
 

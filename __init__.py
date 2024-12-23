@@ -22,10 +22,10 @@ try:
         suspend=False,
     )
     logger.info("Debugger started")
+
 except Exception as e:
     logger.info("Could not start debugger. Continuing.")
     logger.error(e)
-
 
 def createPlugin():
     """MO2 init fn. Cant be snake case."""

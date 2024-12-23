@@ -8,6 +8,27 @@ try:
 except ImportError:
     import PyQt5.QtGui as QtGui
 
+import cProfile
+import pstats
+
+
+class Profiler:
+    def __init__(self, profile_filename='profile.prof'):
+        self.profiler = cProfile.Profile()
+        self.profile_filename = profile_filename
+
+    def start(self):
+        self.profiler.enable()
+
+    def stop(self):
+        self.profiler.disable()
+        self.save()
+
+    def save(self):
+        stats = pstats.Stats(self.profiler)
+        stats.sort_stats(pstats.SortKey.TIME)
+        stats.dump_stats(self.profile_filename)
+
 
 class DownloadManagerPlugin(mobase.IPluginTool):
 
@@ -27,9 +48,16 @@ class DownloadManagerPlugin(mobase.IPluginTool):
         return True
 
     def display(self):
+        profiler = Profiler()
+
+        # Start profiling
+        profiler.start()
+
         self.__window.init()
         self.__window.setWindowTitle(f"{self.NAME} v{self.version().displayString()}")
         self.__window.exec()
+
+        profiler.stop()
 
     def displayName(self):
         return self.NAME

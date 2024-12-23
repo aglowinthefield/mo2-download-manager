@@ -2,7 +2,7 @@
 
 from .download_manager_table_model import DownloadManagerTableModel
 from .hash_worker import HashResult, HashWorker
-from .mo2_compat_utils import get_qt_checked_value
+from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
 
 try:
@@ -138,7 +138,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def hide_install_state_changed(self, checked: Qt.CheckState):
         self._table_model.toggle_show_installed(
-            checked == get_qt_checked_value(Qt.CheckState.Checked)
+            checked == CHECKED_STATE
         )
 
     def create_refresh_button(self):
@@ -184,7 +184,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         if not self._validate_nexus_api_key():
             return
 
-        for item in self._table_model.selected:
+        to_requery = self._table_model.get_selected().copy() # don't use selected directly, the model will change it
+        for item in to_requery:
             self.hash_dialog = HashProgressDialog(self) # type: ignore
             self.hash_worker = HashWorker(item)
             self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)

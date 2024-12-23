@@ -1,7 +1,16 @@
-﻿def get_qt_checked_value(enum):
+﻿try:
+    from PyQt6.QtCore import Qt
+except ImportError:
+    from PyQt5.QtCore import Qt
+
+
+def get_qt_checked_value(enum):
     if hasattr(enum, "value"):
         return enum.value
     return enum
+
+CHECKED_STATE = get_qt_checked_value(Qt.CheckState.Checked)
+UNCHECKED_STATE = get_qt_checked_value(Qt.CheckState.Unchecked)
 
 
 def is_above_2_4(version_str):

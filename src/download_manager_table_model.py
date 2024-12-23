@@ -3,13 +3,6 @@ from typing import Callable, Dict, List, Set
 
 import mobase
 
-from .download_entry import DownloadEntry
-from .download_manager_model import DownloadManagerModel
-from .hash_worker import HashWorker
-from .mo2_compat_utils import get_qt_checked_value
-from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
-from .util import logger, sizeof_fmt
-
 try:
     import PyQt6.QtCore as QtCore
     from PyQt6.QtCore import Qt, QModelIndex
@@ -18,6 +11,14 @@ except ImportError:
     import PyQt5.QtCore as QtCore
     from PyQt5.QtCore import Qt, QModelIndex
     from PyQt5.QtGui import QColor
+
+from .download_entry import DownloadEntry
+from .download_manager_model import DownloadManagerModel
+from .hash_worker import HashWorker
+from .mo2_compat_utils import CHECKED_STATE
+from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
+from .util import logger, sizeof_fmt
+
 
 
 class DownloadManagerTableModel(QtCore.QAbstractTableModel):
@@ -93,9 +94,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             return self.SELECTED_ROW_COLOR if item in self._selected else None
 
-        if role == Qt.ItemDataRole.TextAlignmentRole:
-            return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
             return (
                 Qt.CheckState.Checked
@@ -106,11 +104,19 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return self._render_column(item, index)
 
+        get_value = self.COLUMN_MAPPING.get(index.column())(item)
+
+        if role == Qt.ItemDataRole.TextAlignmentRole:
+            if get_value == "" or get_value is None:
+                return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+            return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
+
+
         return None
 
     def setData(self, index: QModelIndex, value, role=...):
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
-            selected = value == get_qt_checked_value(Qt.CheckState.Checked)
+            selected = value == CHECKED_STATE
             selected_data = self._data[index.row()]
             (
                 self._selected.add(selected_data)
@@ -161,6 +167,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def requery(self, mod: DownloadEntry, md5_hash: str):
         self._model.requery(mod, md5_hash)
         self._data = self._model.data
+        self._selected.remove(mod)
         self._notify_table_updated()
 
     def select_duplicates(self):
@@ -200,8 +207,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def refresh(self):
         self._model.refresh()
-        self._data = self._model.data
-        self.init_data(self._data)
+        self.init_data(self._model.data)
 
 
     def _notify_index_updated(self, index: QModelIndex):
