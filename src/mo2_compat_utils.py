@@ -3,14 +3,12 @@
 except ImportError:
     from PyQt5.QtCore import Qt
 
-
-def get_qt_checked_value(enum):
-    if hasattr(enum, "value"):
-        return enum.value
-    return enum
-
-CHECKED_STATE = get_qt_checked_value(Qt.CheckState.Checked)
-UNCHECKED_STATE = get_qt_checked_value(Qt.CheckState.Unchecked)
+CHECKED_STATE = Qt.CheckState.Checked.value if hasattr(Qt.CheckState.Checked, "value") else Qt.CheckState.Checked
+UNCHECKED_STATE = (
+    Qt.CheckState.Unchecked.value
+    if hasattr(Qt.CheckState.Unchecked, "value")
+    else Qt.CheckState.Unchecked
+)
 
 
 def is_above_2_4(version_str):
