@@ -11,7 +11,7 @@ Features include:
 - Batch deletion of downloads
     - Custom auto-selection of duplicates, keeping the latest of each downloaded mod but removing old versions
 - Batch removal of mods from the download list within MO2
-- TBD...........
+- Batch querying of archive metadata from Nexus
 
 ## Installing
 
