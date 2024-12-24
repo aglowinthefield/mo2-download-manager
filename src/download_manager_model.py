@@ -78,7 +78,7 @@ def _process_file(path):
 
 def _matches_seq_item(seq_item: str, *args: str):
     for arg in args:
-        if seq_item.lower() == arg.lower():
+        if seq_item.replace(" ", "").lower() == arg.replace(" ", "").lower():
             return True
     return False
 
