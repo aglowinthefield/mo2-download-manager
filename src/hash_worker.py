@@ -39,9 +39,9 @@ class HashWorker(QThread):
 
                     # ensure progress only updates in 1% intervals.
                     if progress > last_update:
-                        self.progress_updated.emit(progress)
+                        self.progress_updated.emit(progress) # type: ignore
                         last_update = progress
 
-            self.hash_computed.emit(HashResult(md5_hash=hash_md5.hexdigest(), mod=self.mod))
+            self.hash_computed.emit(HashResult(md5_hash=hash_md5.hexdigest(), mod=self.mod)) # type: ignore
         except Exception as e:
-            self.hash_computed.emit(f"Error: {e}")
+            self.hash_computed.emit(f"Error: {e}") # type: ignore

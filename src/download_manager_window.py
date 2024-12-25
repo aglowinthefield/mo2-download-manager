@@ -1,6 +1,7 @@
 ﻿import mobase
 
 from .download_manager_table_model import DownloadManagerTableModel
+from .download_sort_filter_proxy_model import DownloadSortFilterProxyModel
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
@@ -42,6 +43,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     _has_resized = False
     _is_refreshing = False
 
+    _table_model: DownloadManagerTableModel
+    _proxy_model: DownloadSortFilterProxyModel
+
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         try:
             super().__init__(parent)
@@ -82,10 +86,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             # This area should have the operations for the selected elements
             self._wrapper_left.setLayout(layout_left)
 
+            self.search_bar = QtWidgets.QLineEdit()
+
             self._wrapper_right = QtWidgets.QWidget()
             layout_right = QtWidgets.QVBoxLayout()
+            layout_right.addWidget(self.search_bar)
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
+
+            self.search_bar.textChanged.connect(self._proxy_model.setFilterFixedString)
 
             self._main_layout.addWidget(self._wrapper_left)
             self._main_layout.addWidget(self._wrapper_right)
@@ -106,6 +115,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 "Critical error! Please report this on Nexus / GitHub.",
                 QtWidgets.QMessageBox.Icon.Critical,
             )
+
 
     # region UI - Download Operations
     def _create_delete_button(self):
@@ -131,6 +141,21 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     # endregion
 
     # region UI - Table Operations
+    def create_table_widget(self):
+        table = create_basic_table_widget()
+
+        self._proxy_model = DownloadSortFilterProxyModel()
+        self._proxy_model.setFilterKeyColumn(-1)
+        self._proxy_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+        self._proxy_model.setSourceModel(self._table_model)  # type: ignore
+
+        table.setModel(self._proxy_model)
+        table.setSortingEnabled(True)
+        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+
+        return table
+
     def create_hide_installed_checkbox(self):
         hide_installed_checkbox = QtWidgets.QCheckBox("Hide Installed Files", self)
         hide_installed_checkbox.stateChanged.connect(self.hide_install_state_changed)  # type: ignore
@@ -223,13 +248,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()
         self._table_model.sort(current_sort_col, current_sort_order)
-
-    def create_table_widget(self):
-        table = create_basic_table_widget()
-        table.setModel(self._table_model)
-        table.setSortingEnabled(True)
-        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-        return table
 
     def resize_window(self):
         max_column_width = 500

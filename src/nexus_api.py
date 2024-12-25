@@ -115,6 +115,7 @@ class NexusApi:
             response = self._make_nexus_request(
                 self._BASE_URL, self._PATHS["MD5"], path_vars
             )
+            logger.debug(f"Response from Nexus: {response}")
             if isinstance(response, list):
                 return _md5_response_to_class(response[0])
             if isinstance(response, dict):

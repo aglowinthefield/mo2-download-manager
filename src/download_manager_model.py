@@ -3,7 +3,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import Iterable, List, Union
 
 import mobase
 
@@ -24,7 +24,7 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
-def _file_path_to_download_entry(normalized_path: str):
+def _file_path_to_download_entry(normalized_path: str) -> DownloadEntry:
     meta_path = normalized_path + ".meta"
 
     if not os.path.exists(meta_path):
@@ -49,7 +49,7 @@ def _file_path_to_download_entry(normalized_path: str):
     )
 
 
-def _file_path_to_stub(normalized_path: Path):
+def _file_path_to_stub(normalized_path: Path) -> DownloadEntry:
     return DownloadEntry(
         name="",
         modname="",
@@ -65,7 +65,7 @@ def _file_path_to_stub(normalized_path: Path):
     )
 
 
-def _process_file(path):
+def _process_file(path: str) -> Union[DownloadEntry, None]:
     try:
         normalized_path = os.path.normpath(path)
         if not os.path.exists(normalized_path):
@@ -76,7 +76,7 @@ def _process_file(path):
         logger.error(f"Error processing file {path}: {e}")
         return None
 
-def _matches_seq_item(seq_item: str, *args: str):
+def _matches_seq_item(seq_item: str, *args: str) -> bool:
     for arg in args:
         if seq_item.replace(" ", "").lower() == arg.replace(" ", "").lower():
             return True
@@ -151,11 +151,11 @@ class DownloadManagerModel:
             Path.unlink(file_to_delete.raw_meta_path)
 
     @staticmethod
-    def bulk_hide(items):
+    def bulk_hide(items: Iterable[DownloadEntry]):
         for entry in items:
             _hide_download(entry)
 
-    def bulk_install(self, items):
+    def bulk_install(self, items: Iterable[DownloadEntry]):
         for mod in items:
             self.install_mod(mod)
 
@@ -168,7 +168,7 @@ class DownloadManagerModel:
             # Create a new meta file for this download
             self._create_meta_from_mod_and_nexus_response(mod, response)
             # Create a new DownloadEntry for the meta file. Assuming the meta file now exists, we pass the raw_file_path
-            updated_entry: DownloadEntry = _process_file(mod.raw_file_path)
+            updated_entry: DownloadEntry = _process_file(str(mod.raw_file_path))
             if updated_entry:
                 self.__data = [updated_entry if x == mod else x for x in self.__data]
                 self.__data_no_installed = [d for d in self.__data if not d.installed]
@@ -214,13 +214,9 @@ class DownloadManagerModel:
         mo2_version = self.__organizer.appVersion().canonicalString()
         print(f"Installing {mod.name} with MO2 API version {mo2_version}")
         if is_above_2_4(mo2_version):
-            # mo2 v2.5.x
-            self.__organizer.installMod(
-                mod.raw_file_path,
-            )
+            self.__organizer.installMod(mod.raw_file_path) # mo2 v2.5.x
         else:
-            # mo2 v2.4.x
-            self.__organizer.installMod(str(mod.raw_file_path))
+            self.__organizer.installMod(str(mod.raw_file_path)) # mo2 v2.4.x
         _hide_download(mod)
 
     @property

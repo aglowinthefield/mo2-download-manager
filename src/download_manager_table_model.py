@@ -5,11 +5,11 @@ import mobase
 
 try:
     import PyQt6.QtCore as QtCore
-    from PyQt6.QtCore import Qt, QModelIndex
+    from PyQt6.QtCore import Qt, QModelIndex, QAbstractTableModel
     from PyQt6.QtGui import QColor
 except ImportError:
     import PyQt5.QtCore as QtCore
-    from PyQt5.QtCore import Qt, QModelIndex
+    from PyQt5.QtCore import Qt, QModelIndex, QAbstractTableModel
     from PyQt5.QtGui import QColor
 
 from .download_entry import DownloadEntry
@@ -21,7 +21,7 @@ from .util import logger, sizeof_fmt
 
 
 
-class DownloadManagerTableModel(QtCore.QAbstractTableModel):
+class DownloadManagerTableModel(QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
