@@ -206,7 +206,7 @@ class DownloadManagerModel:
         meta_file.setValue("installed", str(installed).lower())
         meta_file.setValue("uninstalled", "false")
         meta_file.setValue("paused", "false")
-        meta_file.setValue("removed", "false") # read settings to see if DLs are hidden?
+        meta_file.setValue("removed", "true" if installed else "false") # read settings to see if DLs are hidden?
         meta_file.sync()
         return meta_file_name
 

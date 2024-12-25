@@ -294,9 +294,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
+
         select_action = QAction("Select", self)
         select_action.triggered.connect(self._select_from_context) # type: ignore
         context_menu.addAction(select_action)
+
+        deselect_action = QAction("De-Select", self)
+        deselect_action.triggered.connect(self._deselect_from_context) # type: ignore
+        context_menu.addAction(deselect_action)
+
         context_menu.exec(event.globalPos())
 
     def _select_from_context(self):
@@ -305,7 +311,16 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         if not selection_model or len(selection_model.selectedIndexes()) == 0:
             return
         for index in selection_model.selectedIndexes():
-            self._table_model.select_at_index(index)
+            self._table_model.toggle_at_index(index, True)
+        self.setUpdatesEnabled(True)
+
+    def _deselect_from_context(self):
+        self.setUpdatesEnabled(False)
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model or len(selection_model.selectedIndexes()) == 0:
+            return
+        for index in selection_model.selectedIndexes():
+            self._table_model.toggle_at_index(index, False)
         self.setUpdatesEnabled(True)
 
     def _validate_nexus_api_key(self):

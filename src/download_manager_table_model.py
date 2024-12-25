@@ -127,10 +127,15 @@ class DownloadManagerTableModel(QAbstractTableModel):
             return True
         return False
 
-    def select_at_index(self, index: QModelIndex):
+    def toggle_at_index(self, index: QModelIndex, selected: bool):
         selected_data = self._data[index.row()]
-        if selected_data not in self._selected:
+
+        if selected and selected_data not in self._selected:
             self._selected.add(selected_data)
+            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+
+        if not selected and selected_data in self._selected:
+            self._selected.remove(selected_data)
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
         return True
 
