@@ -26,6 +26,4 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
             return False
         return str(left_data).lower() < str(right_data).lower()
 
-    def toggle_at_index(self, index: QModelIndex, selected: Union[bool, None]):
-        source: DownloadManagerTableModel = self.sourceModel() # type: ignore
-        source.toggle_at_index(index, selected)
+    # def toggle_at_index(self, index: QModelIndex, selected: Union[bool, None]):
