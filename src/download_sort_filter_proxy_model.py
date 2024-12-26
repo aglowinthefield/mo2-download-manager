@@ -1,9 +1,7 @@
-﻿from .download_entry import DownloadEntry
-
-try:
-    from PyQt6.QtCore import QSortFilterProxyModel
+﻿try:
+    from PyQt6.QtCore import Qt, QSortFilterProxyModel
 except ImportError:
-    from PyQt5.QtCore import QSortFilterProxyModel
+    from PyQt5.QtCore import Qt, QSortFilterProxyModel
 
 
 class DownloadSortFilterProxyModel(QSortFilterProxyModel):
@@ -11,8 +9,15 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
         super().__init__(parent)
 
     def lessThan(self, left, right):
-        left_data = self.sourceModel().data(left)
-        right_data = self.sourceModel().data(right)
+        left_data = self.sourceModel().data(left, Qt.ItemDataRole.CheckStateRole)
+        right_data = self.sourceModel().data(right, Qt.ItemDataRole.CheckStateRole)
+
+        if left_data is not None and right_data is not None:
+            return left_data < right_data
+
+        left_data = self.sourceModel().data(left, Qt.ItemDataRole.DisplayRole)
+        right_data = self.sourceModel().data(right, Qt.ItemDataRole.DisplayRole)
+
         if left_data is None or right_data is None:
             return False
-        return left_data < right_data
+        return str(left_data).lower() < str(right_data).lower()

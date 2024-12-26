@@ -19,22 +19,21 @@ from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
 from .util import logger, sizeof_fmt
 
-
-
 class DownloadManagerTableModel(QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
     COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], str]] = {
-        0: lambda item: item.name,
-        1: lambda item: item.modname,
-        2: lambda item: item.filename,
-        3: lambda item: item.filetime,
-        4: lambda item: item.version,
-        5: lambda item: item.file_size,
-        6: lambda item: item.installed,
-        7: lambda item: item.nexus_mod_id,
-        8: lambda item: item.nexus_file_id,
+        0: lambda _: None, # checkbox in its own column
+        1: lambda item: item.name,
+        2: lambda item: item.modname,
+        3: lambda item: item.filename,
+        4: lambda item: item.filetime,
+        5: lambda item: item.version,
+        6: lambda item: item.file_size,
+        7: lambda item: item.installed,
+        8: lambda item: item.nexus_mod_id,
+        9: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
@@ -43,7 +42,7 @@ class DownloadManagerTableModel(QAbstractTableModel):
     _selected: Set[DownloadEntry] = set()
 
     # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
+    _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
@@ -72,6 +71,9 @@ class DownloadManagerTableModel(QAbstractTableModel):
         return len(self._data)
 
     def _render_column(self, item, index):
+        if index.column() == 0:
+            return None
+
         get_value = self.COLUMN_MAPPING.get(index.column())
 
         if get_value is None:
@@ -79,7 +81,7 @@ class DownloadManagerTableModel(QAbstractTableModel):
 
         column_value = get_value(item)
 
-        if index.column() == 5:
+        if index.column() == 6:
             return sizeof_fmt(column_value)
         if isinstance(column_value, bool):
             return bool_emoji(column_value)
@@ -88,6 +90,8 @@ class DownloadManagerTableModel(QAbstractTableModel):
         return value_or_no(column_value)
 
     def data(self, index: QModelIndex, role: int = ...):
+        if not index.isValid():
+            return None
         item = self._data[index.row()]
 
         # Decorative roles will go first to ensure they are applied evenly across columns
@@ -107,11 +111,9 @@ class DownloadManagerTableModel(QAbstractTableModel):
         get_value = self.COLUMN_MAPPING.get(index.column())(item)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if get_value == "" or get_value is None:
+            if get_value == "" or get_value is None or index.column() == 0:
                 return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-
-
         return None
 
     def setData(self, index: QModelIndex, value, role=...):

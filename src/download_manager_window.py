@@ -2,9 +2,10 @@
 
 from .download_manager_table_model import DownloadManagerTableModel
 from .download_sort_filter_proxy_model import DownloadSortFilterProxyModel
+from .downloads_table import DownloadsTable
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
-from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
+from .ui_statics import HashProgressDialog, button_with_handler
 
 try:
     import PyQt6.QtWidgets as QtWidgets
@@ -44,7 +45,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     _is_refreshing = False
 
     _table_model: DownloadManagerTableModel
-    _proxy_model: DownloadSortFilterProxyModel
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         try:
@@ -53,7 +53,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self.__organizer = organizer
 
             self._table_model = DownloadManagerTableModel(organizer)
-            self._table_widget = self.create_table_widget()
+            self._table_widget = DownloadsTable()
+            self._table_widget.setModel(self._table_model)
 
             self._main_layout = QtWidgets.QHBoxLayout()
 
@@ -87,6 +88,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._wrapper_left.setLayout(layout_left)
 
             self.search_bar = QtWidgets.QLineEdit()
+            self.search_bar.setPlaceholderText("Search downloads...")
 
             self._wrapper_right = QtWidgets.QWidget()
             layout_right = QtWidgets.QVBoxLayout()
@@ -94,7 +96,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
 
-            self.search_bar.textChanged.connect(self._proxy_model.setFilterFixedString)
+            self.search_bar.textChanged.connect(self._table_widget.setFilterString) # type: ignore
 
             self._main_layout.addWidget(self._wrapper_left)
             self._main_layout.addWidget(self._wrapper_right)
@@ -141,21 +143,6 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     # endregion
 
     # region UI - Table Operations
-    def create_table_widget(self):
-        table = create_basic_table_widget()
-
-        self._proxy_model = DownloadSortFilterProxyModel()
-        self._proxy_model.setFilterKeyColumn(-1)
-        self._proxy_model.setFilterCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self._proxy_model.setSortCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-        self._proxy_model.setSourceModel(self._table_model)  # type: ignore
-
-        table.setModel(self._proxy_model)
-        table.setSortingEnabled(True)
-        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-
-        return table
-
     def create_hide_installed_checkbox(self):
         hide_installed_checkbox = QtWidgets.QCheckBox("Hide Installed Files", self)
         hide_installed_checkbox.stateChanged.connect(self.hide_install_state_changed)  # type: ignore
