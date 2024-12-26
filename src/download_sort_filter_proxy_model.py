@@ -1,7 +1,11 @@
-﻿try:
-    from PyQt6.QtCore import Qt, QSortFilterProxyModel
+﻿from typing import Union
+
+from .download_manager_table_model import DownloadManagerTableModel
+
+try:
+    from PyQt6.QtCore import QModelIndex, Qt, QSortFilterProxyModel
 except ImportError:
-    from PyQt5.QtCore import Qt, QSortFilterProxyModel
+    from PyQt5.QtCore import QModelIndex, Qt, QSortFilterProxyModel
 
 
 class DownloadSortFilterProxyModel(QSortFilterProxyModel):
@@ -21,3 +25,7 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
         if left_data is None or right_data is None:
             return False
         return str(left_data).lower() < str(right_data).lower()
+
+    def toggle_at_index(self, index: QModelIndex, selected: Union[bool, None]):
+        source: DownloadManagerTableModel = self.sourceModel() # type: ignore
+        source.toggle_at_index(index, selected)

@@ -18,18 +18,19 @@ class DownloadsTable(QTableView):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setSortingEnabled(True)
-        self.setAlternatingRowColors(True)
-        self.setShowGrid(False)
-        self.verticalHeader().setVisible(False)
-        self.horizontalHeader().setStretchLastSection(True)
-        self.horizontalHeader().setSectionsClickable(True)
         self.horizontalHeader().setHighlightSections(False)
-        self.horizontalHeader().setSortIndicatorShown(True)
+        self.horizontalHeader().setSectionsClickable(True)
         self.horizontalHeader().setSortIndicator(0, Qt.SortOrder.AscendingOrder)
-        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
-        self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.SingleSelection)
+        self.horizontalHeader().setSortIndicatorShown(True)
+        self.horizontalHeader().setStretchLastSection(True)
+
+        self.setAlternatingRowColors(True)
         self.setEditTriggers(QtWidgets.QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.setSelectionBehavior(QtWidgets.QAbstractItemView.SelectionBehavior.SelectRows)
+        self.setSelectionMode(QtWidgets.QAbstractItemView.SelectionMode.ExtendedSelection)
+        self.setShowGrid(False)
+        self.setSortingEnabled(True)
+        self.verticalHeader().setVisible(False)
 
         self.setSizeAdjustPolicy(
             QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
@@ -55,3 +56,11 @@ class DownloadsTable(QTableView):
 
     def setFilterString(self, filter_string: str):
         self._proxy_model.setFilterFixedString(filter_string)
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key.Key_Space:
+            current_index = self.currentIndex()
+            if current_index.isValid():
+                self._proxy_model.toggle_at_index(current_index, None)
+        else:
+            super().keyPressEvent(e)

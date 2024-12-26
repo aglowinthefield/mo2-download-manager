@@ -1,5 +1,5 @@
 ﻿from datetime import datetime
-from typing import Callable, Dict, List, Set
+from typing import Callable, Dict, List, Set, Union
 
 import mobase
 
@@ -15,7 +15,7 @@ except ImportError:
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
 from .hash_worker import HashWorker
-from .mo2_compat_utils import CHECKED_STATE
+from .mo2_compat_utils import CHECKED_STATE, UNCHECKED_STATE
 from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
 from .util import logger, sizeof_fmt
 
@@ -117,7 +117,7 @@ class DownloadManagerTableModel(QAbstractTableModel):
         return None
 
     def setData(self, index: QModelIndex, value, role=...):
-        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+        if role == Qt.ItemDataRole.CheckStateRole:
             selected = value == CHECKED_STATE
             selected_data = self._data[index.row()]
             (
@@ -129,22 +129,23 @@ class DownloadManagerTableModel(QAbstractTableModel):
             return True
         return False
 
-    def toggle_at_index(self, index: QModelIndex, selected: bool):
+    def toggle_at_index(self, index: QModelIndex, selected: Union[bool, None] = None):
         selected_data = self._data[index.row()]
+        currently_selected = selected_data in self._selected
 
-        if selected and selected_data not in self._selected:
-            self._selected.add(selected_data)
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        # if selected is 'none' do a true toggle, setting it to whatever it isn't
+        should_select = selected is True
+        if selected is None:
+            should_select = not currently_selected
 
-        if not selected and selected_data in self._selected:
-            self._selected.remove(selected_data)
-            self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
-        return True
+        if should_select and not currently_selected:
+            self.setData(index, CHECKED_STATE, Qt.ItemDataRole.CheckStateRole)
+
+        if not should_select and currently_selected:
+            self.setData(index, UNCHECKED_STATE, Qt.ItemDataRole.CheckStateRole)
 
     def flags(self, index: QModelIndex):
         if not index.isValid():
-            # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
-            # pylint:disable=no-member
             return Qt.ItemFlag.NoItemFlags
 
         if index.column() == 0:
