@@ -61,6 +61,8 @@ class DownloadsTable(QTableView):
         if e.key() == Qt.Key.Key_Space:
             current_index = self.currentIndex()
             if current_index.isValid():
-                self._proxy_model.toggle_at_index(current_index, None)
+                # toggle at column 0
+                checkbox_index = self._proxy_model.index(current_index.row(), 0)
+                self._proxy_model.toggle_at_index(checkbox_index, None)
         else:
             super().keyPressEvent(e)
