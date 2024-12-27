@@ -1,6 +1,5 @@
 ﻿from typing import Union
 
-from .download_manager_table_model import DownloadManagerTableModel
 from .mo2_compat_utils import CHECKED_STATE
 
 try:
@@ -14,17 +13,10 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
         super().__init__(parent)
 
     def lessThan(self, left, right):
-        left_data = self.sourceModel().data(left, Qt.ItemDataRole.CheckStateRole)
-        right_data = self.sourceModel().data(right, Qt.ItemDataRole.CheckStateRole)
 
-        if left_data is not None and right_data is not None:
-            return left_data == CHECKED_STATE and right_data != CHECKED_STATE
-
-        if left_data is not None:
-            return left_data == CHECKED_STATE
-
-        if right_data is not None:
-            return right_data != CHECKED_STATE
+        did_compare_checked = self._compare_checked(left, right)
+        if did_compare_checked is not None:
+            return did_compare_checked
 
         left_data = self.sourceModel().data(left, Qt.ItemDataRole.DisplayRole)
         right_data = self.sourceModel().data(right, Qt.ItemDataRole.DisplayRole)
@@ -33,4 +25,16 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
             return False
         return str(left_data).lower() < str(right_data).lower()
 
-    # def toggle_at_index(self, index: QModelIndex, selected: Union[bool, None]):
+    def _compare_checked(self, left, right) -> Union[bool, None]:
+        left_data = self.sourceModel().data(left, Qt.ItemDataRole.CheckStateRole)
+        right_data = self.sourceModel().data(right, Qt.ItemDataRole.CheckStateRole)
+
+        if left_data is not None and right_data is not None:
+            return left_data == Qt.CheckState.Checked and right_data != Qt.CheckState.Checked
+
+        if left_data is not None:
+            return left_data == Qt.CheckState.Checked
+
+        if right_data is not None:
+            return right_data != Qt.CheckState.Checked
+        return None

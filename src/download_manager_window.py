@@ -234,7 +234,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()
-        self._table_model.sort(current_sort_col, current_sort_order)
+        self._table_widget.sortByColumn(current_sort_col, current_sort_order)
 
     def resize_window(self):
         max_column_width = 500

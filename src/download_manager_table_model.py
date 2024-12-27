@@ -158,18 +158,6 @@ class DownloadManagerTableModel(QAbstractTableModel):
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
-    def sort(self, column, order=...):
-        self.layoutAboutToBeChanged.emit()
-        self._data.sort(
-            key=lambda row: (
-                float(self.COLUMN_MAPPING[column](row))
-                if isinstance(self.COLUMN_MAPPING[column](row), (int, float))
-                else str(self.COLUMN_MAPPING[column](row)).lower()
-            ),
-            reverse=(order == Qt.SortOrder.DescendingOrder),
-        )
-        self.layoutChanged.emit()
-
     def get_selected(self):
         return self._selected
 
