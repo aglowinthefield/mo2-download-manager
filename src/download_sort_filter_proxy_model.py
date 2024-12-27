@@ -1,6 +1,7 @@
 ﻿from typing import Union
 
 from .download_manager_table_model import DownloadManagerTableModel
+from .mo2_compat_utils import CHECKED_STATE
 
 try:
     from PyQt6.QtCore import QModelIndex, Qt, QSortFilterProxyModel
@@ -17,7 +18,13 @@ class DownloadSortFilterProxyModel(QSortFilterProxyModel):
         right_data = self.sourceModel().data(right, Qt.ItemDataRole.CheckStateRole)
 
         if left_data is not None and right_data is not None:
-            return left_data < right_data
+            return left_data == CHECKED_STATE and right_data != CHECKED_STATE
+
+        if left_data is not None:
+            return left_data == CHECKED_STATE
+
+        if right_data is not None:
+            return right_data != CHECKED_STATE
 
         left_data = self.sourceModel().data(left, Qt.ItemDataRole.DisplayRole)
         right_data = self.sourceModel().data(right, Qt.ItemDataRole.DisplayRole)

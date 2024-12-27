@@ -93,12 +93,13 @@ class DownloadManagerTableModel(QAbstractTableModel):
         if not index.isValid():
             return None
         item = self._data[index.row()]
+        column = index.column()
 
         # Decorative roles will go first to ensure they are applied evenly across columns
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             return self.SELECTED_ROW_COLOR if item in self._selected else None
 
-        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+        if role == Qt.ItemDataRole.CheckStateRole and column == 0:
             return (
                 Qt.CheckState.Checked
                 if item in self._selected
@@ -108,10 +109,10 @@ class DownloadManagerTableModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return self._render_column(item, index)
 
-        get_value = self.COLUMN_MAPPING.get(index.column())(item)
+        get_value = self.COLUMN_MAPPING.get(column)(item)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
-            if get_value == "" or get_value is None or index.column() == 0:
+            if get_value == "" or get_value is None or column == 0:
                 return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
         return None

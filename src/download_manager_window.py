@@ -298,7 +298,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         if not selection_model or len(selection_model.selectedIndexes()) == 0:
             return
         for index in selection_model.selectedIndexes():
-            self._table_model.toggle_at_index(index, True)
+            self._table_widget.toggle_at_index(index, True)
         self.setUpdatesEnabled(True)
 
     def _deselect_from_context(self):
@@ -307,7 +307,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         if not selection_model or len(selection_model.selectedIndexes()) == 0:
             return
         for index in selection_model.selectedIndexes():
-            self._table_model.toggle_at_index(index, False)
+            self._table_widget.toggle_at_index(index, False)
         self.setUpdatesEnabled(True)
 
     def _validate_nexus_api_key(self):
