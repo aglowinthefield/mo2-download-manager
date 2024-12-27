@@ -5,7 +5,7 @@ from .download_sort_filter_proxy_model import DownloadSortFilterProxyModel
 from .downloads_table import DownloadsTable
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
-from .ui_statics import HashProgressDialog, button_with_handler
+from .ui_statics import ComboBoxWithPlaceholder, HashProgressDialog, button_with_handler, combo_box_with_handlers
 
 try:
     import PyQt6.QtWidgets as QtWidgets
@@ -91,8 +91,23 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self.search_bar.setPlaceholderText("Search downloads...")
 
             self._wrapper_right = QtWidgets.QWidget()
+
             layout_right = QtWidgets.QVBoxLayout()
-            layout_right.addWidget(self.search_bar)
+
+            right_top_wrapper = QtWidgets.QWidget()
+            right_top_area = QtWidgets.QHBoxLayout()
+            right_top_area.addWidget(self.search_bar)
+
+            selections_dropdown = self._create_selections_dropdown()
+            right_top_area.addWidget(selections_dropdown)
+
+            actions_dropdown = self._create_actions_dropdown()
+            right_top_area.addWidget(actions_dropdown)
+
+
+            right_top_wrapper.setLayout(right_top_area)
+
+            layout_right.addWidget(right_top_wrapper)
             layout_right.addWidget(self._table_widget)
             self._wrapper_right.setLayout(layout_right)
 
@@ -119,7 +134,23 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
 
 
-    # region UI - Download Operations
+    # region UI
+    def _create_actions_dropdown(self):
+        actions_dropdown = QtWidgets.QComboBox(self)
+        actions_dropdown.addItem("Select")
+        actions_dropdown.addItem("De-Select")
+        # actions_dropdown.currentIndexChanged.connect(self._actions_dropdown_changed)
+        return actions_dropdown
+
+    def _create_selections_dropdown(self):
+        selection_dropdown = combo_box_with_handlers(self, {
+            "Select All": self._table_model.select_all,
+            "Select None": self._table_model.select_none,
+            "Select Old Duplicates": self._table_model.select_duplicates,
+        })
+        return selection_dropdown
+
+
     def _create_delete_button(self):
         return button_with_handler(
             self.BUTTON_TEXT["DELETE"](0), self, self.delete_selected
