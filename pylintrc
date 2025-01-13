@@ -17,3 +17,5 @@ disable=import-error,
     relative-beyond-top-level
 ignore-patterns=libs,venv,debug
 max-line-length=120
+[FORMAT]
+indent-string='  '
