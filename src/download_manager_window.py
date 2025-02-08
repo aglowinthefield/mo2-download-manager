@@ -7,12 +7,13 @@ from .ui_statics import HashProgressDialog, button_with_handler, create_basic_ta
 
 try:
     import PyQt6.QtWidgets as QtWidgets
-    from PyQt6.QtGui import QAction
+    from PyQt6.QtGui import QAction, QScreen
     from PyQt6.QtCore import Qt
     from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtCore import Qt
+    from PyQt5.QtGui import QScreen
     from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction
 
 
@@ -95,7 +96,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._main_layout.setStretch(1, 6)  # Table
 
             self.setLayout(self._main_layout)
-            self.setMinimumSize(1024, 768)
+
+            screen = QScreen.availableGeometry(QApplication.primaryScreen())
+            max_width = int(screen.width() * 0.8)
+            max_height = int(screen.height() * 0.8)
+
+            min_width = min(1024, max_width)
+            min_height = min(768, max_height)
+
+            self.setMinimumSize(min_width, min_height)
             self._center_window()
 
             self._table_model.dataChanged.connect(self.update_button_states)
@@ -261,10 +270,17 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
         table_size = self._wrapper_right.sizeHint()
         button_size = self._wrapper_left.sizeHint()
+        screen = QApplication.primaryScreen().availableGeometry()
+        max_width = int(screen.width() * 0.8)
+        max_height = int(screen.height() * 0.8)
+
         new_height = min(table_size.height() + padding, max_height)
+        new_height = min(new_height, max_height)
 
         # Resize window to fit the table with the new height constraint
         new_width = table_size.width() + button_size.width() + (padding * 3)
+        new_width = min(new_width, max_width)
+
         self.resize(new_width, new_height)
         self._center_window()
 

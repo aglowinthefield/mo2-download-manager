@@ -21,11 +21,11 @@ try:
         stderrToServer=True,
         suspend=False,
     )
-    logger.info("Debugger started")
+    logger.debug("Debugger started")
 
 except Exception as e:
-    logger.info("Could not start debugger. Continuing.")
-    logger.error(e)
+    logger.debug("Could not start debugger. Continuing.")
+    logger.debug(e)
 
 def createPlugin():
     """MO2 init fn. Cant be snake case."""
