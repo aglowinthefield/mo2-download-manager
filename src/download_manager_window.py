@@ -109,6 +109,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             self._table_model.dataChanged.connect(self.update_button_states)
 
+            self.setWindowModality(Qt.WindowModality.NonModal)
+
         except Exception as ex:
             show_error(
                 repr(ex),

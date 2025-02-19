@@ -55,7 +55,7 @@ class DownloadManagerPlugin(mobase.IPluginTool):
 
         self.__window.init()
         self.__window.setWindowTitle(f"{self.NAME} v{self.version().displayString()}")
-        self.__window.exec()
+        self.__window.show()
 
         # profiler.stop()
 
