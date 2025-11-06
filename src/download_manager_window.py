@@ -5,6 +5,8 @@ from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
 
+import json
+
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtGui import QAction, QScreen
@@ -29,6 +31,9 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class DownloadManagerWindow(QtWidgets.QDialog):
 
+    COLUMN_VISIBILITY_SETTING = "columnVisibility"
+    COLUMN_ORDER_SETTING = "columnOrder"
+
     BUTTON_TEXT = {
         "INSTALL": lambda count: f"Install Selected ({count})",
         "REQUERY": lambda count: f"Re-query Selected ({count})",
@@ -50,6 +55,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self.__organizer = organizer
 
             self._table_model = DownloadManagerTableModel(organizer)
+            self._column_visibility = []
+            self._column_order = []
             self._table_widget = self.create_table_widget()
 
             self._main_layout = QtWidgets.QHBoxLayout()
@@ -240,7 +247,157 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.setModel(self._table_model)
         table.setSortingEnabled(True)
         table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+        self._enable_column_customization(table)
         return table
+
+    def _enable_column_customization(self, table: QtWidgets.QTableView):
+        header = table.horizontalHeader()
+        header.setSectionsClickable(True)
+        header.setSectionsMovable(True)
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+
+        column_count = self._table_model.columnCount()
+        self._column_visibility = self._load_column_visibility(column_count)
+        self._column_order = self._load_column_order(column_count)
+        self._apply_column_order(header)
+        for column in range(column_count):
+            column_name = self._table_model.headerData(
+                column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
+            )
+            action = QAction(str(column_name), header)
+            action.setCheckable(True)
+            initial_state = self._column_visibility[column]
+            action.setChecked(initial_state)
+            action.toggled.connect(
+                lambda checked, col=column: self._handle_column_toggle(
+                    table, col, checked
+                )
+            )
+            header.addAction(action)
+            table.setColumnHidden(column, not initial_state)
+        header.sectionMoved.connect(self._handle_section_moved)
+
+    def _handle_column_toggle(
+        self, table: QtWidgets.QTableView, column: int, checked: bool
+    ):
+        table.setColumnHidden(column, not checked)
+        if column < len(self._column_visibility):
+            self._column_visibility[column] = checked
+        self._save_column_visibility()
+
+    def _handle_section_moved(self, *_):
+        header = self._table_widget.horizontalHeader()
+        self._column_order = [
+            header.logicalIndex(visual_index) for visual_index in range(header.count())
+        ]
+        self._save_column_order()
+
+    def _apply_column_order(self, header: QtWidgets.QHeaderView):
+        for target_index, logical_index in enumerate(self._column_order):
+            current_visual_index = header.visualIndex(logical_index)
+            if current_visual_index == -1:
+                continue
+            if current_visual_index != target_index:
+                header.moveSection(current_visual_index, target_index)
+
+    def _load_column_visibility(self, column_count: int):
+        default_visibility = [True] * column_count
+        if not self.__organizer:
+            return default_visibility
+
+        try:
+            stored_value = self.__organizer.pluginSetting(
+                "Download Manager", self.COLUMN_VISIBILITY_SETTING
+            )
+        except Exception:
+            return default_visibility
+
+        if not stored_value:
+            return default_visibility
+
+        parsed_value = None
+        if isinstance(stored_value, list):
+            parsed_value = stored_value
+        elif isinstance(stored_value, str):
+            try:
+                parsed_value = json.loads(stored_value)
+            except json.JSONDecodeError:
+                return default_visibility
+
+        if not isinstance(parsed_value, list):
+            return default_visibility
+
+        visibility = default_visibility.copy()
+        for idx in range(min(len(parsed_value), column_count)):
+            visibility[idx] = bool(parsed_value[idx])
+
+        return visibility
+
+    def _load_column_order(self, column_count: int):
+        default_order = list(range(column_count))
+        if not self.__organizer:
+            return default_order
+
+        try:
+            stored_value = self.__organizer.pluginSetting(
+                "Download Manager", self.COLUMN_ORDER_SETTING
+            )
+        except Exception:
+            return default_order
+
+        if not stored_value:
+            return default_order
+
+        parsed_value = None
+        if isinstance(stored_value, list):
+            parsed_value = stored_value
+        elif isinstance(stored_value, str):
+            try:
+                parsed_value = json.loads(stored_value)
+            except json.JSONDecodeError:
+                return default_order
+
+        if not isinstance(parsed_value, list):
+            return default_order
+
+        filtered_order = []
+        for value in parsed_value:
+            if (
+                isinstance(value, int)
+                and 0 <= value < column_count
+                and value not in filtered_order
+            ):
+                filtered_order.append(value)
+
+        for logical_index in range(column_count):
+            if logical_index not in filtered_order:
+                filtered_order.append(logical_index)
+
+        return filtered_order
+
+    def _save_column_visibility(self):
+        if not self.__organizer:
+            return
+        try:
+            self.__organizer.setPluginSetting(
+                "Download Manager",
+                self.COLUMN_VISIBILITY_SETTING,
+                json.dumps(self._column_visibility),
+            )
+        except Exception:
+            pass
+
+    def _save_column_order(self):
+        if not self.__organizer:
+            return
+        try:
+            self.__organizer.setPluginSetting(
+                "Download Manager",
+                self.COLUMN_ORDER_SETTING,
+                json.dumps(self._column_order),
+            )
+        except Exception:
+            pass
 
     def resize_window(self):
         max_column_width = 500
@@ -248,10 +405,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
         # Resize columns to contents
         resize_mode = QtWidgets.QHeaderView.ResizeMode.ResizeToContents
-        self._table_widget.horizontalHeader().setSectionResizeMode(resize_mode)
+        header = self._table_widget.horizontalHeader()
+        header.setSectionResizeMode(resize_mode)
 
         # Adjust each column so they don't go over max width
-        header = self._table_widget.horizontalHeader()
         for column in range(self._table_widget.model().columnCount()):
             header.setSectionResizeMode(column, resize_mode)
 
@@ -265,6 +422,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                     column, QtWidgets.QHeaderView.ResizeMode.Interactive
                 )
                 header.resizeSection(column, max_column_width)
+            # After the initial sizing pass, leave the column in interactive mode
+            header.setSectionResizeMode(
+                column, QtWidgets.QHeaderView.ResizeMode.Interactive
+            )
 
         # Make sure window doesn't get tall af
         screen_height = QApplication.primaryScreen().availableGeometry().height()

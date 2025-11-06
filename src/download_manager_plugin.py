@@ -79,7 +79,13 @@ class DownloadManagerPlugin(mobase.IPluginTool):
 
     def settings(self):
         return [
-            mobase.PluginSetting("nexusApiKey", "Nexus API Key", "")
+            mobase.PluginSetting("nexusApiKey", "Nexus API Key", ""),
+            mobase.PluginSetting(
+                "columnVisibility", "Download table column visibility (managed automatically).", "[]"
+            ),
+            mobase.PluginSetting(
+                "columnOrder", "Download table column order (managed automatically).", "[]"
+            ),
         ]
 
     def version(self):
