@@ -1,9 +1,10 @@
-﻿import os.path
+﻿import os
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from configparser import ConfigParser
 from datetime import datetime
 from pathlib import Path
-from typing import List, Set
+from typing import List, Set, Tuple
 
 import mobase
 
@@ -24,56 +25,80 @@ def _hide_download(item: DownloadEntry):
     file_settings.sync()
 
 
-def _file_path_to_download_entry(normalized_path: str):
-    meta_path = normalized_path + ".meta"
+def _determine_worker_count() -> int:
+    cpu_count = os.cpu_count() or 1
+    return min(32, max(4, cpu_count * 4))
 
-    if not os.path.exists(meta_path):
-        return _file_path_to_stub(Path(normalized_path))
 
-    file_setting = QSettings(meta_path, QSettings.Format.IniFormat)
+def _to_bool(value) -> bool:
+    return str(value).strip().lower() == "true"
 
-    archive_path = Path(meta_path[:-5])
+
+def _load_meta_file(meta_path: Path):
+    parser = ConfigParser()
+    parser.optionxform = str  # preserve key casing used by MO2
+
+    try:
+        with meta_path.open("r", encoding="utf-8", errors="ignore") as handle:
+            parser.read_file(handle)
+    except FileNotFoundError:
+        return None
+    except Exception as exc:  # pragma: no cover - defensive logging
+        logger.warning("Failed to read meta file %s: %s", meta_path, exc)
+        return None
+
+    if parser.sections():
+        section = parser[parser.sections()[0]]
+    else:
+        section = parser.defaults()
+
+    return dict(section)
+
+
+def _file_path_to_download_entry(archive_path: Path, stat_result: os.stat_result):
+    meta_path = archive_path.with_name(f"{archive_path.name}.meta")
+    meta_values = _load_meta_file(meta_path)
+
+    if not meta_values:
+        return _file_path_to_stub(archive_path, stat_result)
 
     return DownloadEntry(
-        name=file_setting.value("name"),
-        modname=file_setting.value("modName"),
-        filename=str(os.path.basename(meta_path)),
-        filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
-        version=file_setting.value("version"),
-        installed=file_setting.value("installed") == "true",
+        name=meta_values.get("name", archive_path.stem),
+        modname=meta_values.get("modName", ""),
+        filename=meta_path.name,
+        filetime=datetime.fromtimestamp(stat_result.st_mtime),
+        version=meta_values.get("version", ""),
+        installed=_to_bool(meta_values.get("installed", "")),
         raw_file_path=archive_path,
-        raw_meta_path=Path(meta_path),
-        file_size=archive_path.stat().st_size,
-        nexus_file_id=file_setting.value("fileID"),
-        nexus_mod_id=file_setting.value("modID"),
+        raw_meta_path=meta_path,
+        file_size=stat_result.st_size,
+        nexus_file_id=meta_values.get("fileID"),
+        nexus_mod_id=meta_values.get("modID"),
     )
 
 
-def _file_path_to_stub(normalized_path: Path):
+def _file_path_to_stub(archive_path: Path, stat_result: os.stat_result):
     return DownloadEntry(
         name="",
         modname="",
-        filename=str(os.path.basename(normalized_path)),
-        filetime=datetime.fromtimestamp(os.path.getmtime(normalized_path)),
+        filename=archive_path.name,
+        filetime=datetime.fromtimestamp(stat_result.st_mtime),
         version="",
         installed=False,
-        raw_file_path=normalized_path,
+        raw_file_path=archive_path,
         raw_meta_path=None,
-        file_size=normalized_path.stat().st_size,
+        file_size=stat_result.st_size,
         nexus_file_id=None,
         nexus_mod_id=None
     )
 
 
-def _process_file(path):
+def _process_file(file_info: Tuple[Path, os.stat_result]):
     try:
-        normalized_path = os.path.normpath(path)
-        if not os.path.exists(normalized_path):
-            print(f"File not found: {normalized_path}")
-            return None
-        return _file_path_to_download_entry(normalized_path)
+        archive_path, stat_result = file_info
+        return _file_path_to_download_entry(archive_path, stat_result)
     except Exception as e:
-        logger.error(f"Error processing file {path}: {e}")
+        logger.error(f"Error processing file {file_info[0]}: {e}")
         return None
 
 
@@ -86,35 +111,55 @@ class DownloadManagerModel:
         self.__organizer = organizer
         self.__data = []
         self.__data_no_installed = []
+        self._executor = ThreadPoolExecutor(max_workers=_determine_worker_count())
 
     def refresh(self):
-        files: List[str] = self._collect_archive_files()
+        files: List[Tuple[Path, os.stat_result]] = self._collect_archive_files()
         self._read_meta_files(files)
         self.__data_no_installed = [d for d in self.__data if not d.installed]
 
-    def _read_meta_files(self, files: List[str]):
+    def _read_meta_files(self, files: List[Tuple[Path, os.stat_result]]):
         self.__data = []
-        with ThreadPoolExecutor() as executor:
-            futures = []
-            for f in files:
-                futures.append(executor.submit(_process_file, f))
+        futures = [self._executor.submit(_process_file, file_info) for file_info in files]
 
-            for future in futures:
-                entry = future.result()
-                if entry:
-                    self.__data.append(entry)
-                else:
-                    logger.info("Entry broken. Should not happen.")
+        for future in as_completed(futures):
+            entry = future.result()
+            if entry:
+                self.__data.append(entry)
+            else:
+                logger.info("Entry broken. Should not happen.")
 
-    def _collect_archive_files(self):
+    def _collect_archive_files(self) -> List[Tuple[Path, os.stat_result]]:
         directory_path = Path(self.__organizer.downloadsPath())
-        extensions = ["*.zip", "*.7z", "*.rar", "*.7zip"]
-        files = [
-            str(f)
-            for ext in extensions
-            for f in directory_path.glob(ext)
-            if f.is_file() and not f.stem.endswith("unfinished")
-        ]
+        if not directory_path.exists():
+            return []
+
+        files: List[Tuple[Path, os.stat_result]] = []
+        valid_suffixes = (".zip", ".7z", ".rar", ".7zip")
+
+        try:
+            with os.scandir(directory_path) as iterator:
+                for entry in iterator:
+                    if not entry.is_file():
+                        continue
+
+                    lower_name = entry.name.lower()
+                    if not lower_name.endswith(valid_suffixes):
+                        continue
+
+                    archive_path = Path(entry.path)
+                    if archive_path.stem.endswith("unfinished"):
+                        continue
+
+                    try:
+                        stat_result = entry.stat(follow_symlinks=False)
+                    except FileNotFoundError:
+                        continue
+
+                    files.append((archive_path, stat_result))
+        except FileNotFoundError:
+            return []
+
         return files
 
     @staticmethod
@@ -179,7 +224,12 @@ class DownloadManagerModel:
             # Create a new meta file for this download
             self._create_meta_from_mod_and_nexus_response(mod, response)
             # Create a new DownloadEntry for the meta file. Assuming the meta file now exists, we pass the raw_file_path
-            updated_entry: DownloadEntry = _process_file(mod.raw_file_path)
+            try:
+                stat_result = mod.raw_file_path.stat()
+                updated_entry = _file_path_to_download_entry(mod.raw_file_path, stat_result)
+            except FileNotFoundError:
+                updated_entry = None
+
             if updated_entry:
                 self.__data = [updated_entry if x == mod else x for x in self.__data]
                 self.__data_no_installed = [d for d in self.__data if not d.installed]
@@ -235,3 +285,9 @@ class DownloadManagerModel:
     @property
     def data_no_installed(self):
         return self.__data_no_installed
+
+    def __del__(self):
+        try:
+            self._executor.shutdown(wait=False)
+        except Exception:
+            pass
