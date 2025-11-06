@@ -10,11 +10,11 @@ import json
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtGui import QAction, QScreen
-    from PyQt6.QtCore import Qt
+    from PyQt6.QtCore import Qt, QEvent
     from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
-    from PyQt5.QtCore import Qt
+    from PyQt5.QtCore import Qt, QEvent
     from PyQt5.QtGui import QScreen
     from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction
 
@@ -248,6 +248,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table.setSortingEnabled(True)
         table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self._enable_column_customization(table)
+        table.installEventFilter(self)
         return table
 
     def _enable_column_customization(self, table: QtWidgets.QTableView):
@@ -452,6 +453,33 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         this_window = self.frameGeometry()
         this_window.moveCenter(screen.center())
         self.move(this_window.topLeft())
+
+    def eventFilter(self, watched, event):
+        if (
+            watched == self._table_widget
+            and event.type() == QEvent.Type.KeyPress
+            and event.key() == Qt.Key.Key_Space
+        ):
+            if self._toggle_selected_rows():
+                return True
+        return super().eventFilter(watched, event)
+
+    def _toggle_selected_rows(self):
+        if not self._table_widget:
+            return False
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model:
+            return False
+        rows = {index.row() for index in selection_model.selectedRows()}
+        if not rows:
+            rows = {index.row() for index in selection_model.selectedIndexes()}
+        row_list = sorted(rows)
+        if not row_list:
+            return False
+        all_selected = self._table_model.are_rows_selected(row_list)
+        self._table_model.set_rows_selected(row_list, not all_selected)
+        self.update_button_states()
+        return True
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)

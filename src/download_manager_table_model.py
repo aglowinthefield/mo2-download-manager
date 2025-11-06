@@ -134,6 +134,40 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
         return True
 
+    def are_rows_selected(self, rows: List[int]) -> bool:
+        if not rows:
+            return False
+        for row in rows:
+            if row < 0 or row >= len(self._data):
+                continue
+            if self._data[row] not in self._selected:
+                return False
+        return True
+
+    def set_rows_selected(self, rows: List[int], selected: bool):
+        if not rows:
+            return
+        max_column = self.columnCount()
+        roles = [
+            Qt.ItemDataRole.CheckStateRole,
+            QtCore.Qt.ItemDataRole.BackgroundRole,
+        ]
+        for row in rows:
+            if row < 0 or row >= len(self._data):
+                continue
+            item = self._data[row]
+            if selected:
+                if item in self._selected:
+                    continue
+                self._selected.add(item)
+            else:
+                if item not in self._selected:
+                    continue
+                self._selected.remove(item)
+            left = self.index(row, 0)
+            right = self.index(row, max_column - 1)
+            self.dataChanged.emit(left, right, roles)
+
     def flags(self, index: QModelIndex):
         if not index.isValid():
             # these qt5/qt6 imports act a little strangely with pylint. this member does exist.
