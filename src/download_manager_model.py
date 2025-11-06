@@ -3,7 +3,7 @@ from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
-from typing import List
+from typing import List, Set
 
 import mobase
 
@@ -76,11 +76,6 @@ def _process_file(path):
         logger.error(f"Error processing file {path}: {e}")
         return None
 
-def _matches_seq_item(seq_item: str, *args: str):
-    for arg in args:
-        if seq_item.replace(" ", "").lower() == arg.replace(" ", "").lower():
-            return True
-    return False
 
 class DownloadManagerModel:
     __organizer: mobase.IOrganizer
@@ -122,24 +117,40 @@ class DownloadManagerModel:
         ]
         return files
 
-    def get_duplicates(self):
-        dupes = set()
+    @staticmethod
+    def _duplicate_group_key(entry: DownloadEntry) -> str:
+        for candidate in (entry.name, entry.modname):
+            if candidate:
+                return candidate.strip().lower()
+        if entry.raw_file_path:
+            return entry.raw_file_path.stem.lower()
+        return entry.filename.lower()
 
-        grouped_by_name = defaultdict(list)
+    def get_duplicates(self):
+        duplicates: Set[DownloadEntry] = set()
+        grouped_by_key = defaultdict(list)
 
         for entry in self.__data:
-            grouped_by_name[entry.name].append(entry)
+            key = self._duplicate_group_key(entry)
+            grouped_by_key[key].append(entry)
 
-        logger.info(grouped_by_name)
+        for entries in grouped_by_key.values():
+            if len(entries) < 2:
+                continue
 
-        for _, value in grouped_by_name.items():
-            if len(value) > 1:
-                dupes.update(
-                    sorted([dl for dl in value if dl.version], key=lambda x: x.version)[
-                        :-1
-                    ]
-                )
-        return dupes
+            ordered = sorted(
+                entries,
+                key=lambda item: (
+                    item.filetime.timestamp(),
+                    item.filename.lower(),
+                    item.version or "",
+                ),
+                reverse=True,
+            )
+
+            duplicates.update(ordered[1:])
+
+        return duplicates
 
     def delete(self, item: DownloadEntry):
         file_to_delete = next((d for d in self.__data if d == item), None)
@@ -182,12 +193,6 @@ class DownloadManagerModel:
         name = response.file_details.name
         mod_name = response.mod.name
 
-        # check if mod installed using possible guessed names. might not be perfect. might be bad! who knows.
-        mod_list = self.__organizer.modList()
-        all_mods = mod_list.allMods()
-        match = next((m for m in all_mods if _matches_seq_item(m, name, mod_name)), None)
-        installed = match is not None
-
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
         meta_file.setValue("gameName", self.__organizer.managedGame().gameShortName())
         meta_file.setValue("modID", response.mod.mod_id)
@@ -203,7 +208,7 @@ class DownloadManagerModel:
         meta_file.setValue("category", response.mod.category_id)
         meta_file.setValue("repository", "Nexus")
         meta_file.setValue("userData", QVariant(response.mod.user))
-        meta_file.setValue("installed", str(installed).lower())
+        meta_file.setValue("installed", str(mod.installed).lower())
         meta_file.setValue("uninstalled", "false")
         meta_file.setValue("paused", "false")
         meta_file.setValue("removed", "false") # read settings to see if DLs are hidden?
