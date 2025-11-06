@@ -10,13 +10,13 @@ import json
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtGui import QAction, QScreen
-    from PyQt6.QtCore import Qt, QEvent
-    from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu
+    from PyQt6.QtCore import Qt, QEvent, QSortFilterProxyModel
+    from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu, QStyle
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
-    from PyQt5.QtCore import Qt, QEvent
+    from PyQt5.QtCore import Qt, QEvent, QSortFilterProxyModel
     from PyQt5.QtGui import QScreen
-    from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction
+    from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction, QStyle
 
 
 def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
@@ -27,6 +27,40 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
     exception_box.setInformativeText(message)
     exception_box.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
     exception_box.exec()
+
+
+class DownloadFilterProxyModel(QSortFilterProxyModel):
+
+    FILTER_COLUMNS = (1, 2)  # Mod Name, Filename
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._search_text = ""
+        self.setDynamicSortFilter(True)
+
+    def set_search_text(self, text: str):
+        normalized = text.strip().lower()
+        if normalized == self._search_text:
+            return
+        self._search_text = normalized
+        self.invalidateFilter()
+
+    def filterAcceptsRow(self, source_row, source_parent):
+        if not self._search_text:
+            return True
+
+        source_model = self.sourceModel()
+        if source_model is None:
+            return True
+
+        for column in self.FILTER_COLUMNS:
+            index = source_model.index(source_row, column, source_parent)
+            value = source_model.data(index, Qt.ItemDataRole.DisplayRole)
+            if value is None:
+                continue
+            if self._search_text in str(value).lower():
+                return True
+        return False
 
 
 class DownloadManagerWindow(QtWidgets.QDialog):
@@ -55,52 +89,18 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self.__organizer = organizer
 
             self._table_model = DownloadManagerTableModel(organizer)
+            self._proxy_model = DownloadFilterProxyModel(self)
+            self._proxy_model.setSourceModel(self._table_model)
+
             self._column_visibility = []
             self._column_order = []
+
             self._table_widget = self.create_table_widget()
 
-            self._main_layout = QtWidgets.QHBoxLayout()
-
-            self._wrapper_left = QtWidgets.QWidget()
-
-            # This area has the select/refresh/table operations fields
-            layout_left = QtWidgets.QVBoxLayout()
-            self._refresh_button = self.create_refresh_button()
-            layout_left.addWidget(self._refresh_button)
-            layout_left.addWidget(self.create_select_duplicates_button())
-            layout_left.addWidget(self.create_select_all_button())
-            layout_left.addWidget(self.create_select_none_button())
-            layout_left.addWidget(self.create_hide_installed_checkbox())
-
-            spacer = QtWidgets.QSpacerItem(
-                20, 40, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding
-            )
-            layout_left.addItem(spacer)
-
-            self._install_button = self._create_install_button()
-            self._requery_button = self._create_requery_button()
-            self._hide_button = self._create_hide_button()
-            self._delete_button = self._create_delete_button()
-
-            layout_left.addWidget(self._install_button)
-            layout_left.addWidget(self._requery_button)
-            layout_left.addWidget(self._hide_button)
-            layout_left.addWidget(self._delete_button)
-
-            # This area should have the operations for the selected elements
-            self._wrapper_left.setLayout(layout_left)
-
-            self._wrapper_right = QtWidgets.QWidget()
-            layout_right = QtWidgets.QVBoxLayout()
-            layout_right.addWidget(self._table_widget)
-            self._wrapper_right.setLayout(layout_right)
-
-            self._main_layout.addWidget(self._wrapper_left)
-            self._main_layout.addWidget(self._wrapper_right)
-
-            # Dimensions / ratios
-            self._main_layout.setStretch(0, 1)  # Buttons
-            self._main_layout.setStretch(1, 6)  # Table
+            self._main_layout = QtWidgets.QVBoxLayout()
+            self._controls_widget = self._create_controls_bar()
+            self._main_layout.addWidget(self._controls_widget)
+            self._main_layout.addWidget(self._table_widget)
 
             self.setLayout(self._main_layout)
 
@@ -125,28 +125,100 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 QtWidgets.QMessageBox.Icon.Critical,
             )
 
-    # region UI - Download Operations
-    def _create_delete_button(self):
-        return button_with_handler(
-            self.BUTTON_TEXT["DELETE"](0), self, self.delete_selected
-        )
+    def _standard_icon(self, pixmap: QStyle.StandardPixmap):
+        return QApplication.style().standardIcon(pixmap)
 
-    def _create_install_button(self):
-        return button_with_handler(
-            self.BUTTON_TEXT["INSTALL"](0), self, self.install_selected
-        )
+    def _create_controls_bar(self):
+        controls = QtWidgets.QWidget(self)
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(8)
 
-    def _create_requery_button(self):
-        return button_with_handler(
-            self.BUTTON_TEXT["REQUERY"](0), self, self.requery_selected
-        )
+        self._refresh_button = self.create_refresh_button()
+        layout.addWidget(self._refresh_button)
 
-    def _create_hide_button(self):
-        return button_with_handler(
-            self.BUTTON_TEXT["HIDE"](0), self, self.hide_selected
-        )
+        self._search_input = self._create_search_input()
+        layout.addWidget(self._search_input, 1)
 
-    # endregion
+        self._select_menu_button = self._create_select_button()
+        layout.addWidget(self._select_menu_button)
+
+        self._actions_menu_button = self._create_actions_button()
+        layout.addWidget(self._actions_menu_button)
+
+        layout.addWidget(self.create_hide_installed_checkbox())
+        layout.addStretch(1)
+
+        controls.setLayout(layout)
+        return controls
+
+    def _create_search_input(self):
+        search = QtWidgets.QLineEdit(self)
+        search.setPlaceholderText("Search filename or mod name...")
+        search.textChanged.connect(self._on_search_text_changed)  # type: ignore
+        return search
+
+    def _create_select_button(self):
+        button = QtWidgets.QToolButton(self)
+        button.setText("Select")
+        button.setIcon(
+            self._standard_icon(QStyle.StandardPixmap.SP_DialogYesButton)
+        )
+        button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        menu = QMenu(button)
+        action_duplicates = QAction("Select Old Duplicates", self)
+        action_duplicates.triggered.connect(self._table_model.select_duplicates)  # type: ignore
+        menu.addAction(action_duplicates)
+
+        action_all = QAction("Select All", self)
+        action_all.triggered.connect(self._table_model.select_all)  # type: ignore
+        menu.addAction(action_all)
+
+        action_none = QAction("Select None", self)
+        action_none.triggered.connect(self._table_model.select_none)  # type: ignore
+        menu.addAction(action_none)
+
+        button.setMenu(menu)
+        return button
+
+    def _create_actions_button(self):
+        button = QtWidgets.QToolButton(self)
+        button.setText("Actions")
+        lightning_pixmap = getattr(
+            QStyle.StandardPixmap, "SP_DialogResetButton", QStyle.StandardPixmap.SP_CommandLink
+        )
+        button.setIcon(self._standard_icon(lightning_pixmap))
+        button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
+        button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        menu = QMenu(button)
+
+        self._install_action = QAction(self.BUTTON_TEXT["INSTALL"](0), self)
+        self._install_action.triggered.connect(self.install_selected)  # type: ignore
+        menu.addAction(self._install_action)
+
+        self._requery_action = QAction(self.BUTTON_TEXT["REQUERY"](0), self)
+        self._requery_action.triggered.connect(self.requery_selected)  # type: ignore
+        menu.addAction(self._requery_action)
+
+        self._hide_action = QAction(self.BUTTON_TEXT["HIDE"](0), self)
+        self._hide_action.triggered.connect(self.hide_selected)  # type: ignore
+        menu.addAction(self._hide_action)
+
+        self._delete_action = QAction(self.BUTTON_TEXT["DELETE"](0), self)
+        self._delete_action.triggered.connect(self.delete_selected)  # type: ignore
+        menu.addAction(self._delete_action)
+
+        for action in (
+            self._install_action,
+            self._requery_action,
+            self._hide_action,
+            self._delete_action,
+        ):
+            action.setEnabled(False)
+
+        button.setMenu(menu)
+        return button
 
     # region UI - Table Operations
     def create_hide_installed_checkbox(self):
@@ -158,22 +230,19 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._table_model.toggle_show_installed(
             checked == CHECKED_STATE
         )
+        self._proxy_model.invalidateFilter()
 
     def create_refresh_button(self):
-        return button_with_handler("Refresh", self, self.refresh_data)
-
-    def create_select_duplicates_button(self):
-        return button_with_handler(
-            "Select Old Duplicates", self, self._table_model.select_duplicates
+        button = button_with_handler("Refresh", self, self.refresh_data)
+        button.setIcon(
+            self._standard_icon(QStyle.StandardPixmap.SP_BrowserReload)
         )
-
-    def create_select_all_button(self):
-        return button_with_handler("Select All", self, self._table_model.select_all)
-
-    def create_select_none_button(self):
-        return button_with_handler("Select None", self, self._table_model.select_none)
+        return button
 
     # endregion
+
+    def _on_search_text_changed(self, text: str):
+        self._proxy_model.set_search_text(text)
 
     # region UI change handler
     def update_button_states(self):
@@ -181,15 +250,19 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._toggle_button_operations(len(selected))
 
     def _toggle_button_operations(self, selected_count):
-        self._hide_button.setEnabled(selected_count > 0)
-        self._delete_button.setEnabled(selected_count > 0)
-        self._requery_button.setEnabled(selected_count > 0)
-        self._install_button.setEnabled(selected_count > 0)
+        operations_enabled = selected_count > 0
+        for action in (
+            self._hide_action,
+            self._delete_action,
+            self._requery_action,
+            self._install_action,
+        ):
+            action.setEnabled(operations_enabled)
 
-        self._hide_button.setText(self.BUTTON_TEXT["HIDE"](selected_count))
-        self._requery_button.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
-        self._delete_button.setText(self.BUTTON_TEXT["DELETE"](selected_count))
-        self._install_button.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
+        self._hide_action.setText(self.BUTTON_TEXT["HIDE"](selected_count))
+        self._requery_action.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
+        self._delete_action.setText(self.BUTTON_TEXT["DELETE"](selected_count))
+        self._install_action.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
 
     # endregion
 
@@ -240,11 +313,11 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         header = self._table_widget.horizontalHeader()
         current_sort_col = header.sortIndicatorSection()
         current_sort_order = header.sortIndicatorOrder()
-        self._table_model.sort(current_sort_col, current_sort_order)
+        self._proxy_model.sort(current_sort_col, current_sort_order)
 
     def create_table_widget(self):
         table = create_basic_table_widget()
-        table.setModel(self._table_model)
+        table.setModel(self._proxy_model)
         table.setSortingEnabled(True)
         table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
         self._enable_column_customization(table)
@@ -428,22 +501,17 @@ class DownloadManagerWindow(QtWidgets.QDialog):
                 column, QtWidgets.QHeaderView.ResizeMode.Interactive
             )
 
-        # Make sure window doesn't get tall af
-        screen_height = QApplication.primaryScreen().availableGeometry().height()
-        max_height = int(screen_height * 0.5)
-
-        table_size = self._wrapper_right.sizeHint()
-        button_size = self._wrapper_left.sizeHint()
+        controls_size = self._controls_widget.sizeHint()
+        table_size = self._table_widget.sizeHint()
         screen = QApplication.primaryScreen().availableGeometry()
         max_width = int(screen.width() * 0.8)
         max_height = int(screen.height() * 0.8)
 
-        new_height = min(table_size.height() + padding, max_height)
-        new_height = min(new_height, max_height)
+        content_width = max(controls_size.width(), table_size.width())
+        new_width = min(content_width + (padding * 2), max_width)
 
-        # Resize window to fit the table with the new height constraint
-        new_width = table_size.width() + button_size.width() + (padding * 3)
-        new_width = min(new_width, max_width)
+        content_height = controls_size.height() + table_size.height() + padding
+        new_height = min(content_height, max_height)
 
         self.resize(new_width, new_height)
         self._center_window()
@@ -465,21 +533,29 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         return super().eventFilter(watched, event)
 
     def _toggle_selected_rows(self):
-        if not self._table_widget:
-            return False
-        selection_model = self._table_widget.selectionModel()
-        if not selection_model:
-            return False
-        rows = {index.row() for index in selection_model.selectedRows()}
-        if not rows:
-            rows = {index.row() for index in selection_model.selectedIndexes()}
-        row_list = sorted(rows)
+        row_list = self._selected_source_rows()
         if not row_list:
             return False
         all_selected = self._table_model.are_rows_selected(row_list)
         self._table_model.set_rows_selected(row_list, not all_selected)
         self.update_button_states()
         return True
+
+    def _selected_source_rows(self):
+        if not self._table_widget:
+            return []
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model:
+            return []
+        indexes = selection_model.selectedRows()
+        if not indexes:
+            indexes = selection_model.selectedIndexes()
+        rows = set()
+        for index in indexes:
+            source_index = self._proxy_model.mapToSource(index)
+            if source_index.isValid():
+                rows.add(source_index.row())
+        return sorted(rows)
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
@@ -494,7 +570,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         if not selection_model or len(selection_model.selectedIndexes()) == 0:
             return
         for index in selection_model.selectedIndexes():
-            self._table_model.select_at_index(index)
+            source_index = self._proxy_model.mapToSource(index)
+            if source_index.isValid():
+                self._table_model.select_at_index(source_index)
         self.setUpdatesEnabled(True)
 
     def _validate_nexus_api_key(self):
