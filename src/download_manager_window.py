@@ -67,6 +67,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     COLUMN_VISIBILITY_SETTING = "columnVisibility"
     COLUMN_ORDER_SETTING = "columnOrder"
+    ALTERNATE_ROWS_SETTING = "alternateRowColors"
 
     BUTTON_TEXT = {
         "INSTALL": lambda count: f"Install Selected ({count})",
@@ -94,6 +95,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             self._column_visibility = []
             self._column_order = []
+            self._alternate_row_colors = self._load_alternate_row_setting()
 
             self._table_widget = self.create_table_widget()
 
@@ -316,7 +318,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._proxy_model.sort(current_sort_col, current_sort_order)
 
     def create_table_widget(self):
-        table = create_basic_table_widget()
+        table = create_basic_table_widget(self._alternate_row_colors)
         table.setModel(self._proxy_model)
         table.setSortingEnabled(True)
         table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
@@ -472,6 +474,29 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             )
         except Exception:
             pass
+
+    def _load_alternate_row_setting(self):
+        if not self.__organizer:
+            return True
+        try:
+            stored_value = self.__organizer.pluginSetting(
+                "Download Manager", self.ALTERNATE_ROWS_SETTING
+            )
+        except Exception:
+            return True
+        if stored_value in (None, ""):
+            return True
+        return self._coerce_bool(stored_value, True)
+
+    @staticmethod
+    def _coerce_bool(value, default):
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in ("1", "true", "yes", "on")
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return default
 
     def resize_window(self):
         max_column_width = 500

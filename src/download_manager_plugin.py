@@ -86,6 +86,9 @@ class DownloadManagerPlugin(mobase.IPluginTool):
             mobase.PluginSetting(
                 "columnOrder", "Download table column order (managed automatically).", "[]"
             ),
+            mobase.PluginSetting(
+                "alternateRowColors", "Use alternating row colors in the download table.", True
+            ),
         ]
 
     def version(self):

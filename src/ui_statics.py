@@ -1,9 +1,11 @@
 ﻿try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtWidgets import QHeaderView
+    from PyQt6.QtGui import QPalette
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtWidgets import QHeaderView
+    from PyQt5.QtGui import QPalette
 
 class HashProgressDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
@@ -24,11 +26,11 @@ class HashProgressDialog(QtWidgets.QDialog):
     def cancel(self):
         self.reject()
 
-def create_basic_table_widget():
+def create_basic_table_widget(alternate_rows: bool = True):
     """Set the model after creating this. Cleans up window code"""
     table = QtWidgets.QTableView()
     table.verticalHeader().setVisible(False)
-    table.setAlternatingRowColors(True)
+    table.setAlternatingRowColors(alternate_rows)
     table.setSizeAdjustPolicy(
         QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents
     )
