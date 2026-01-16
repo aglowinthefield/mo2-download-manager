@@ -36,6 +36,19 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
     exception_box.exec()
 
 
+class RefreshWorker(QThread):
+    """Background worker thread for refreshing download data."""
+    finished = pyqtSignal()
+
+    def __init__(self, table_model):
+        super().__init__()
+        self._table_model = table_model
+
+    def run(self):
+        self._table_model.refresh()
+        self.finished.emit()
+
+
 class DownloadFilterProxyModel(QSortFilterProxyModel):
 
     FILTER_COLUMNS = (2, 3)  # Mod Name, Filename (shifted by 1 due to selection column)
@@ -100,6 +113,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     hash_dialog = None
     _has_resized = False
     _is_refreshing = False
+    _refresh_worker = None
+    _has_loaded_data = False
 
     def __init__(self, organizer: mobase.IOrganizer, parent=None):
         try:
@@ -120,9 +135,15 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._main_layout = QtWidgets.QVBoxLayout()
             self._controls_widget = self._create_controls_bar()
             self._main_layout.addWidget(self._controls_widget)
+            self._secondary_controls = self._create_secondary_controls()
+            self._main_layout.addWidget(self._secondary_controls)
             self._main_layout.addWidget(self._table_widget)
 
             self.setLayout(self._main_layout)
+
+            # Loading overlay - must be created after layout is set
+            self._loading_overlay = LoadingOverlay(self, "Loading Downloads...")
+            self._loading_overlay.hide()
 
             screen = QScreen.availableGeometry(QApplication.primaryScreen())
             max_width = int(screen.width() * 0.8)
@@ -148,10 +169,27 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def _standard_icon(self, pixmap: QStyle.StandardPixmap):
         return QApplication.style().standardIcon(pixmap)
 
+    def _custom_icon(self, name: str) -> QIcon:
+        icon_path = ICON_DIR / name
+        if icon_path.exists():
+            return QIcon(str(icon_path))
+        return QIcon()
+
+    @staticmethod
+    def _dropdown_button_style() -> str:
+        return """
+            QToolButton {
+                padding: 4px 8px;
+            }
+            QToolButton::menu-indicator {
+                subcontrol-position: right center;
+            }
+        """
+
     def _create_controls_bar(self):
         controls = QtWidgets.QWidget(self)
         layout = QtWidgets.QHBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setContentsMargins(4, 8, 4, 8)
         layout.setSpacing(8)
 
         self._refresh_button = self.create_refresh_button()
@@ -166,6 +204,20 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._actions_menu_button = self._create_actions_button()
         layout.addWidget(self._actions_menu_button)
 
+        self._selection_count_label = QtWidgets.QLabel("0 mods selected", self)
+        layout.addWidget(self._selection_count_label)
+
+        layout.addStretch(1)
+
+        controls.setLayout(layout)
+        return controls
+
+    def _create_secondary_controls(self):
+        controls = QtWidgets.QWidget(self)
+        layout = QtWidgets.QHBoxLayout()
+        layout.setContentsMargins(4, 0, 4, 8)
+        layout.setSpacing(8)
+
         layout.addWidget(self.create_hide_installed_checkbox())
         layout.addStretch(1)
 
@@ -176,20 +228,35 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         search = QtWidgets.QLineEdit(self)
         search.setPlaceholderText("Search filename or mod name...")
         search.textChanged.connect(self._on_search_text_changed)  # type: ignore
+        search.addAction(
+            self._custom_icon("icon_search.png"),
+            QtWidgets.QLineEdit.ActionPosition.LeadingPosition
+        )
+        search.setMinimumHeight(28)
         return search
 
     def _create_select_button(self):
         button = QtWidgets.QToolButton(self)
         button.setText("Select")
-        button.setIcon(
-            self._standard_icon(QStyle.StandardPixmap.SP_DialogYesButton)
-        )
+        button.setIcon(self._custom_icon("icon_select.png"))
         button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setMinimumHeight(28)
+        button.setStyleSheet(self._dropdown_button_style())
+
         menu = QMenu(button)
+
         action_duplicates = QAction("Select Old Duplicates", self)
         action_duplicates.triggered.connect(self._table_model.select_duplicates)  # type: ignore
         menu.addAction(action_duplicates)
+
+        action_not_installed = QAction("Select Not Installed", self)
+        action_not_installed.setToolTip(
+            "Selects downloads that haven't been installed, "
+            "excluding old versions of already-installed mods"
+        )
+        action_not_installed.triggered.connect(self._table_model.select_not_installed)  # type: ignore
+        menu.addAction(action_not_installed)
 
         action_all = QAction("Select All", self)
         action_all.triggered.connect(self._table_model.select_all)  # type: ignore
@@ -205,12 +272,12 @@ class DownloadManagerWindow(QtWidgets.QDialog):
     def _create_actions_button(self):
         button = QtWidgets.QToolButton(self)
         button.setText("Actions")
-        lightning_pixmap = getattr(
-            QStyle.StandardPixmap, "SP_DialogResetButton", QStyle.StandardPixmap.SP_CommandLink
-        )
-        button.setIcon(self._standard_icon(lightning_pixmap))
+        button.setIcon(self._custom_icon("icon_action.png"))
         button.setPopupMode(QtWidgets.QToolButton.ToolButtonPopupMode.InstantPopup)
         button.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)
+        button.setMinimumHeight(28)
+        button.setStyleSheet(self._dropdown_button_style())
+
         menu = QMenu(button)
 
         self._install_action = QAction(self.BUTTON_TEXT["INSTALL"](0), self)
@@ -253,10 +320,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._proxy_model.invalidateFilter()
 
     def create_refresh_button(self):
-        button = button_with_handler("Refresh", self, self.refresh_data)
-        button.setIcon(
-            self._standard_icon(QStyle.StandardPixmap.SP_BrowserReload)
-        )
+        button = QtWidgets.QPushButton("Refresh", self)
+        button.setIcon(self._custom_icon("icon_refresh.png"))
+        button.clicked.connect(self.refresh_data)  # type: ignore
+        button.setMinimumHeight(28)
         return button
 
     # endregion
@@ -283,6 +350,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._requery_action.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
         self._delete_action.setText(self.BUTTON_TEXT["DELETE"](selected_count))
         self._install_action.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
+
+        self._selection_count_label.setText(f"{selected_count} mods selected")
 
     # endregion
 
@@ -319,13 +388,30 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self.refresh_data()
 
     def refresh_data(self):
+        if self._is_refreshing:
+            return
+        self._is_refreshing = True
         self._refresh_button.setEnabled(False)
-        self._table_model.refresh()
+
+        # Show loading overlay
+        self._loading_overlay.set_message("Refreshing Downloads...")
+        self._loading_overlay.set_sub_message("Scanning download folder...")
+        self._loading_overlay.show_overlay()
+
+        # Run refresh in background thread
+        self._refresh_worker = RefreshWorker(self._table_model)
+        self._refresh_worker.finished.connect(self._on_refresh_complete)  # type: ignore
+        self._refresh_worker.start()
+
+    def _on_refresh_complete(self):
+        self._loading_overlay.hide_overlay()
         if not self._has_resized:
             self.resize_window()
             self._has_resized = True
         self.reapply_sort()
         self._refresh_button.setEnabled(True)
+        self._is_refreshing = False
+        self._has_loaded_data = True
 
     # endregion
 
@@ -354,7 +440,8 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._column_visibility = self._load_column_visibility(column_count)
         self._column_order = self._load_column_order(column_count)
         self._apply_column_order(header)
-        for column in range(column_count):
+        # Start from column 1 to skip the checkbox column (column 0) - it should always be visible
+        for column in range(1, column_count):
             column_name = self._table_model.headerData(
                 column, Qt.Orientation.Horizontal, Qt.ItemDataRole.DisplayRole
             )
@@ -602,21 +689,82 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
     def contextMenuEvent(self, event):
         context_menu = QMenu(self)
-        select_action = QAction("Select", self)
-        select_action.triggered.connect(self._select_from_context) # type: ignore
-        context_menu.addAction(select_action)
+        toggle_action = QAction("Toggle Selected", self)
+        toggle_action.triggered.connect(self._toggle_from_context) # type: ignore
+        context_menu.addAction(toggle_action)
+
+        view_nexus_action = QAction("View on Nexus", self)
+        view_nexus_action.triggered.connect(self._view_on_nexus) # type: ignore
+        context_menu.addAction(view_nexus_action)
+
         context_menu.exec(event.globalPos())
 
-    def _select_from_context(self):
+    def _toggle_from_context(self):
+        """Toggle selection state for all highlighted rows (invert each row's state)."""
         self.setUpdatesEnabled(False)
         selection_model = self._table_widget.selectionModel()
         if not selection_model or len(selection_model.selectedIndexes()) == 0:
+            self.setUpdatesEnabled(True)
             return
+        # Track which rows we've already toggled to avoid toggling multiple times
+        # when multiple columns are selected in the same row
+        toggled_rows = set()
         for index in selection_model.selectedIndexes():
             source_index = self._proxy_model.mapToSource(index)
-            if source_index.isValid():
-                self._table_model.select_at_index(source_index)
+            if source_index.isValid() and source_index.row() not in toggled_rows:
+                self._table_model.toggle_at_index(source_index)
+                toggled_rows.add(source_index.row())
         self.setUpdatesEnabled(True)
+
+    def _view_on_nexus(self):
+        """Open Nexus mod page in browser for each highlighted SkyrimSE mod from Nexus."""
+        selection_model = self._table_widget.selectionModel()
+        if not selection_model or len(selection_model.selectedIndexes()) == 0:
+            return
+
+        # Collect all valid entries first
+        urls_to_open = []
+        seen_rows = set()
+        for index in selection_model.selectedIndexes():
+            source_index = self._proxy_model.mapToSource(index)
+            if not source_index.isValid() or source_index.row() in seen_rows:
+                continue
+            seen_rows.add(source_index.row())
+
+            entry = self._table_model._data[source_index.row()]
+
+            # Only open if repository is Nexus and game is SkyrimSE
+            if entry.repository != "Nexus":
+                continue
+            if entry.game_name != "SkyrimSE":
+                continue
+            if not entry.nexus_mod_id:
+                continue
+
+            url = f"https://www.nexusmods.com/skyrimspecialedition/mods/{entry.nexus_mod_id}"
+            urls_to_open.append(url)
+
+        if not urls_to_open:
+            return
+
+        # Confirm if opening more than 5 tabs
+        if len(urls_to_open) > 5:
+            confirm = QtWidgets.QMessageBox(self)
+            confirm.setWindowTitle("Open browser tabs?")
+            confirm.setText(f"Open {len(urls_to_open)} browser tabs?")
+            confirm.setInformativeText(
+                f"Viewing everything you selected would open {len(urls_to_open)} browser tabs. "
+                "Just checking, you want to do that, right?"
+            )
+            open_btn = confirm.addButton("Open the tabs", QtWidgets.QMessageBox.ButtonRole.AcceptRole)
+            confirm.addButton("Nevermind", QtWidgets.QMessageBox.ButtonRole.RejectRole)
+            confirm.exec()
+
+            if confirm.clickedButton() != open_btn:
+                return
+
+        for url in urls_to_open:
+            webbrowser.open(url)
 
     def _validate_nexus_api_key(self):
         api_key: str = self.__organizer.pluginSetting("Download Manager", "nexusApiKey")
@@ -627,6 +775,21 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             "See the README/Nexus page for information.",
             "Nexus API key not found")
         return False
+
+    def showEvent(self, event):
+        """Called when window is shown. Auto-refresh if no data loaded yet."""
+        super().showEvent(event)
+        # Auto-refresh on first show if we haven't loaded data yet
+        if not self._has_loaded_data and not self._is_refreshing:
+            self._loading_overlay.set_message("Loading Downloads...")
+            self._loading_overlay.set_sub_message("First launch - scanning download folder...")
+            self.refresh_data()
+
+    def resizeEvent(self, event):
+        """Ensure loading overlay covers the window when resized."""
+        super().resizeEvent(event)
+        if hasattr(self, '_loading_overlay') and self._loading_overlay.isVisible():
+            self._loading_overlay.setGeometry(self.rect())
 
     #################
     # Required by MO2

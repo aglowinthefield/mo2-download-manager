@@ -149,6 +149,16 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
         return True
 
+    def toggle_at_index(self, index: QModelIndex):
+        """Toggle selection state for item at index (invert current state)."""
+        item = self._data[index.row()]
+        if item in self._selected:
+            self._selected.remove(item)
+        else:
+            self._selected.add(item)
+        self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
+        return True
+
     def are_rows_selected(self, rows: List[int]) -> bool:
         if not rows:
             return False
