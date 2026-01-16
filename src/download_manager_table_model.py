@@ -34,8 +34,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         5: lambda item: item.version,
         6: lambda item: item.file_size,
         7: lambda item: item.installed,
-        8: lambda item: item.nexus_mod_id,
-        9: lambda item: item.nexus_file_id,
+        8: lambda item: item.hidden,
+        9: lambda item: item.nexus_mod_id,
+        10: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
@@ -44,7 +45,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _selected: Set[DownloadEntry] = set()
 
     # Column 0 is selection checkbox column (empty header), rest are data columns
-    _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
+    _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Hidden?", "Mod ID", "File ID")
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()

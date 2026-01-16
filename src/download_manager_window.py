@@ -1,22 +1,29 @@
-﻿import mobase
+﻿import webbrowser
+
+import mobase
 
 from .download_manager_table_model import DownloadManagerTableModel
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
-from .ui_statics import HashProgressDialog, button_with_handler, create_basic_table_widget
+from .ui_statics import HashProgressDialog, LoadingOverlay, create_basic_table_widget
 
 import json
 
+from pathlib import Path
+
 try:
     import PyQt6.QtWidgets as QtWidgets
-    from PyQt6.QtGui import QAction, QScreen
-    from PyQt6.QtCore import Qt, QEvent, QSortFilterProxyModel
+    from PyQt6.QtGui import QAction, QScreen, QIcon
+    from PyQt6.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread, pyqtSignal
     from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu, QStyle
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
-    from PyQt5.QtCore import Qt, QEvent, QSortFilterProxyModel
-    from PyQt5.QtGui import QScreen
+    from PyQt5.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread, pyqtSignal
+    from PyQt5.QtGui import QScreen, QIcon
     from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction, QStyle
+
+# Icon paths
+ICON_DIR = Path(__file__).parent / "icon"
 
 
 def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):

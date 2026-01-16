@@ -69,11 +69,14 @@ def _file_path_to_download_entry(archive_path: Path, stat_result: os.stat_result
         filetime=datetime.fromtimestamp(stat_result.st_mtime),
         version=meta_values.get("version", ""),
         installed=_to_bool(meta_values.get("installed", "")),
+        hidden=_to_bool(meta_values.get("removed", "")),
         raw_file_path=archive_path,
         raw_meta_path=meta_path,
         file_size=stat_result.st_size,
         nexus_file_id=meta_values.get("fileID"),
         nexus_mod_id=meta_values.get("modID"),
+        repository=meta_values.get("repository"),
+        game_name=meta_values.get("gameName"),
     )
 
 
@@ -85,11 +88,14 @@ def _file_path_to_stub(archive_path: Path, stat_result: os.stat_result):
         filetime=datetime.fromtimestamp(stat_result.st_mtime),
         version="",
         installed=False,
+        hidden=False,
         raw_file_path=archive_path,
         raw_meta_path=None,
         file_size=stat_result.st_size,
         nexus_file_id=None,
-        nexus_mod_id=None
+        nexus_mod_id=None,
+        repository=None,
+        game_name=None,
     )
 
 
