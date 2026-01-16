@@ -34,6 +34,44 @@ def _to_bool(value) -> bool:
     return str(value).strip().lower() == "true"
 
 
+def _parse_version_tuple(version: str) -> Tuple:
+    """
+    Parse a version string into a tuple for proper numeric comparison.
+    
+    Examples:
+        "1.0" -> (1, 0)
+        "2.10.3" -> (2, 10, 3)
+        "1.0a" -> (1, 0, 'a')
+        "" -> ()
+    
+    This ensures "10.0" > "9.0" and "1.10" > "1.9" (numeric comparison),
+    unlike lexicographic string comparison where "9" > "10".
+    """
+    if not version:
+        return ()
+    
+    parts = []
+    current = ""
+    
+    for char in version:
+        if char.isdigit():
+            current += char
+        elif char in ".-_":
+            if current:
+                parts.append(int(current) if current.isdigit() else current)
+                current = ""
+        else:
+            if current:
+                parts.append(int(current) if current.isdigit() else current)
+                current = ""
+            current = char
+    
+    if current:
+        parts.append(int(current) if current.isdigit() else current)
+    
+    return tuple(parts)
+
+
 def _load_meta_file(meta_path: Path):
     parser = ConfigParser()
     parser.optionxform = str  # preserve key casing used by MO2
@@ -189,12 +227,13 @@ class DownloadManagerModel:
             if len(entries) < 2:
                 continue
 
+            # Sort by filetime (primary), then by version using semantic comparison.
+            # This ensures "10.0" > "9.0" even when filetimes are identical.
             ordered = sorted(
                 entries,
                 key=lambda item: (
                     item.filetime.timestamp(),
-                    item.filename.lower(),
-                    item.version or "",
+                    _parse_version_tuple(item.version),
                 ),
                 reverse=True,
             )

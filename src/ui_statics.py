@@ -1,11 +1,13 @@
 ﻿try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtWidgets import QHeaderView
-    from PyQt6.QtGui import QPalette
+    from PyQt6.QtGui import QPalette, QColor, QFont, QPainter, QPen
+    from PyQt6.QtCore import Qt, QTimer
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
     from PyQt5.QtWidgets import QHeaderView
-    from PyQt5.QtGui import QPalette
+    from PyQt5.QtGui import QPalette, QColor, QFont, QPainter, QPen
+    from PyQt5.QtCore import Qt, QTimer
 
 class HashProgressDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
