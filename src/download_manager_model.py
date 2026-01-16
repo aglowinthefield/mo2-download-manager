@@ -242,6 +242,35 @@ class DownloadManagerModel:
 
         return duplicates
 
+    def get_not_installed(self) -> Set[DownloadEntry]:
+        not_installed: Set[DownloadEntry] = set()
+        grouped_by_key = defaultdict(list)
+
+        for entry in self.__data:
+            key = self._duplicate_group_key(entry)
+            grouped_by_key[key].append(entry)
+
+        for entries in grouped_by_key.values():
+            # Find the newest installed version's timestamp (if any)
+            installed_entries = [e for e in entries if e.installed]
+            
+            if not installed_entries:
+                # No installed version exists - add all not-installed entries
+                for entry in entries:
+                    if not entry.installed:
+                        not_installed.add(entry)
+            else:
+                # Find the newest installed version by filetime
+                newest_installed_time = max(e.filetime for e in installed_entries)
+                
+                # Include not-installed entries that are NEWER than the newest installed version
+                # (these are likely updates the user hasn't installed yet)
+                for entry in entries:
+                    if not entry.installed and entry.filetime > newest_installed_time:
+                        not_installed.add(entry)
+
+        return not_installed
+
     def delete(self, item: DownloadEntry):
         file_to_delete = next((d for d in self.__data if d == item), None)
         if file_to_delete is None:

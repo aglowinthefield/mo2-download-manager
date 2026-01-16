@@ -232,6 +232,11 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._selected = self._model.get_duplicates()
             self._notify_table_updated()
 
+    def select_not_installed(self):
+        if self._model:
+            self._selected = self._model.get_not_installed()
+            self._notify_table_updated()
+
     def select_all(self):
         for item in self._data:
             self._selected.add(item)
@@ -255,12 +260,13 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if self._model:
             self._model.bulk_hide(self._selected)
 
-    def toggle_show_installed(self, show_installed: bool):
-        if show_installed:
+    def toggle_show_installed(self, hide_installed: bool):
+        self.layoutAboutToBeChanged.emit()
+        if hide_installed:
             self._data = self._model.data_no_installed
         else:
             self._data = self._model.data
-        self._notify_table_updated()
+        self.layoutChanged.emit()
 
     def refresh(self):
         self._model.refresh()
