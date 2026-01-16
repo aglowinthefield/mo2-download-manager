@@ -31,7 +31,7 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class DownloadFilterProxyModel(QSortFilterProxyModel):
 
-    FILTER_COLUMNS = (1, 2)  # Mod Name, Filename
+    FILTER_COLUMNS = (2, 3)  # Mod Name, Filename (shifted by 1 due to selection column)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -44,6 +44,16 @@ class DownloadFilterProxyModel(QSortFilterProxyModel):
             return
         self._search_text = normalized
         self.invalidateFilter()
+
+    def lessThan(self, left, right):
+        # Column 0 is the selection checkbox - sort by check state
+        if left.column() == 0:
+            source = self.sourceModel()
+            # Direct set lookup is O(1) and avoids expensive data() calls
+            left_item = source._data[left.row()]
+            right_item = source._data[right.row()]
+            return (left_item in source._selected) < (right_item in source._selected)
+        return super().lessThan(left, right)
 
     def filterAcceptsRow(self, source_row, source_parent):
         if not self._search_text:
@@ -65,8 +75,9 @@ class DownloadFilterProxyModel(QSortFilterProxyModel):
 
 class DownloadManagerWindow(QtWidgets.QDialog):
 
-    COLUMN_VISIBILITY_SETTING = "columnVisibility"
-    COLUMN_ORDER_SETTING = "columnOrder"
+    # v2 suffix added to invalidate old settings after selection column was added
+    COLUMN_VISIBILITY_SETTING = "columnVisibilityV2"
+    COLUMN_ORDER_SETTING = "columnOrderV2"
     ALTERNATE_ROWS_SETTING = "alternateRowColors"
 
     BUTTON_TEXT = {
@@ -321,7 +332,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table = create_basic_table_widget(self._alternate_row_colors)
         table.setModel(self._proxy_model)
         table.setSortingEnabled(True)
-        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
+        table.sortByColumn(1, Qt.SortOrder.AscendingOrder)  # Sort by Name column (column 0 is selection)
         self._enable_column_customization(table)
         table.installEventFilter(self)
         return table

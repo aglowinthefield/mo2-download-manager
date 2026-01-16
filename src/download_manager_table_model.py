@@ -25,16 +25,17 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
+    # Column 0 is reserved for the selection checkbox
     COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], str]] = {
-        0: lambda item: item.name,
-        1: lambda item: item.modname,
-        2: lambda item: item.filename,
-        3: lambda item: item.filetime,
-        4: lambda item: item.version,
-        5: lambda item: item.file_size,
-        6: lambda item: item.installed,
-        7: lambda item: item.nexus_mod_id,
-        8: lambda item: item.nexus_file_id,
+        1: lambda item: item.name,
+        2: lambda item: item.modname,
+        3: lambda item: item.filename,
+        4: lambda item: item.filetime,
+        5: lambda item: item.version,
+        6: lambda item: item.file_size,
+        7: lambda item: item.installed,
+        8: lambda item: item.nexus_mod_id,
+        9: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
@@ -42,8 +43,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     _model: DownloadManagerModel = None
     _selected: Set[DownloadEntry] = set()
 
-    # Remove selected from the DownloadEntry model. Not necessary
-    _header = ("Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
+    # Column 0 is selection checkbox column (empty header), rest are data columns
+    _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Mod ID", "File ID")
 
     def __init__(self, organizer: mobase.IOrganizer):
         super().__init__()
@@ -72,6 +73,10 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return len(self._data)
 
     def _render_column(self, item, index):
+        # Column 0 is the selection checkbox column - no display text
+        if index.column() == 0:
+            return None
+
         get_value = self.COLUMN_MAPPING.get(index.column())
 
         if get_value is None:
@@ -79,7 +84,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         column_value = get_value(item)
 
-        if index.column() == 5:
+        if index.column() == 6:  # Size column (shifted by 1 due to selection column)
             return sizeof_fmt(column_value)
         if isinstance(column_value, bool):
             return bool_emoji(column_value)
@@ -94,6 +99,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             return self.SELECTED_ROW_COLOR if item in self._selected else None
 
+        # Column 0 is the dedicated selection checkbox column
         if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
             return (
                 Qt.CheckState.Checked
@@ -104,13 +110,21 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return self._render_column(item, index)
 
-        get_value = self.COLUMN_MAPPING.get(index.column())(item)
+        # Column 0 has no COLUMN_MAPPING entry, so handle alignment separately
+        if index.column() == 0:
+            if role == Qt.ItemDataRole.TextAlignmentRole:
+                return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
+            return None
+
+        get_value_fn = self.COLUMN_MAPPING.get(index.column())
+        if get_value_fn is None:
+            return None
+        get_value = get_value_fn(item)
 
         if role == Qt.ItemDataRole.TextAlignmentRole:
             if get_value == "" or get_value is None:
                 return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
-
 
         return None
 
@@ -185,14 +199,22 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def sort(self, column, order=...):
         self.layoutAboutToBeChanged.emit()
-        self._data.sort(
-            key=lambda row: (
-                float(self.COLUMN_MAPPING[column](row))
-                if isinstance(self.COLUMN_MAPPING[column](row), (int, float))
-                else str(self.COLUMN_MAPPING[column](row)).lower()
-            ),
-            reverse=(order == Qt.SortOrder.DescendingOrder),
-        )
+
+        # Column 0 is the selection column - sort by selected state
+        if column == 0:
+            self._data.sort(
+                key=lambda row: row in self._selected,
+                reverse=(order == Qt.SortOrder.DescendingOrder),
+            )
+        else:
+            self._data.sort(
+                key=lambda row: (
+                    float(self.COLUMN_MAPPING[column](row))
+                    if isinstance(self.COLUMN_MAPPING[column](row), (int, float))
+                    else str(self.COLUMN_MAPPING[column](row)).lower()
+                ),
+                reverse=(order == Qt.SortOrder.DescendingOrder),
+            )
         self.layoutChanged.emit()
 
     def get_selected(self):
