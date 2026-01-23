@@ -1,4 +1,4 @@
-﻿import os
+import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from configparser import ConfigParser
@@ -19,10 +19,23 @@ except ImportError:
     from PyQt5.QtCore import QSettings, QDateTime, QVariant
 
 
-def _hide_download(item: DownloadEntry):
-    file_settings = QSettings(str(item.raw_meta_path), QSettings.Format.IniFormat)
-    file_settings.setValue("removed", "true")
-    file_settings.sync()
+def _hide_download(item: DownloadEntry) -> bool:
+    if item.raw_meta_path is None:
+        logger.warning("Cannot hide %s: no meta file path", item.filename)
+        return False
+    if not item.raw_meta_path.exists():
+        logger.warning("Cannot hide %s: meta file does not exist at %s", item.filename, item.raw_meta_path)
+        return False
+    try:
+        file_settings = QSettings(str(item.raw_meta_path), QSettings.Format.IniFormat)
+        file_settings.beginGroup("General")
+        file_settings.setValue("removed", "true")
+        file_settings.endGroup()
+        file_settings.sync()
+        return True
+    except Exception as exc:
+        logger.error("Failed to hide %s: %s", item.filename, exc)
+        return False
 
 
 def _determine_worker_count() -> int:
@@ -271,19 +284,27 @@ class DownloadManagerModel:
 
         return not_installed
 
-    def delete(self, item: DownloadEntry):
+    def delete(self, item: DownloadEntry) -> bool:
         file_to_delete = next((d for d in self.__data if d == item), None)
         if file_to_delete is None:
-            return
-        if file_to_delete.raw_file_path and Path.is_file(file_to_delete.raw_file_path):
-            Path.unlink(file_to_delete.raw_file_path)
-        if file_to_delete.raw_meta_path and Path.is_file(file_to_delete.raw_meta_path):
-            Path.unlink(file_to_delete.raw_meta_path)
+            return False
+        try:
+            if file_to_delete.raw_file_path and file_to_delete.raw_file_path.is_file():
+                file_to_delete.raw_file_path.unlink()
+            if file_to_delete.raw_meta_path and file_to_delete.raw_meta_path.is_file():
+                file_to_delete.raw_meta_path.unlink()
+            return True
+        except Exception as exc:
+            logger.error("Failed to delete %s: %s", item.filename, exc)
+            return False
 
     @staticmethod
-    def bulk_hide(items):
-        for entry in items:
-            _hide_download(entry)
+    def bulk_hide(items) -> int:
+        success_count = 0
+        for entry in list(items):
+            if _hide_download(entry):
+                success_count += 1
+        return success_count
 
     def bulk_install(self, items):
         for mod in items:
@@ -318,6 +339,7 @@ class DownloadManagerModel:
         mod_name = response.mod.name
 
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
+        meta_file.beginGroup("General")
         meta_file.setValue("gameName", self.__organizer.managedGame().gameShortName())
         meta_file.setValue("modID", response.mod.mod_id)
         meta_file.setValue("fileID", response.file_details.file_id)
@@ -326,7 +348,7 @@ class DownloadManagerModel:
         meta_file.setValue("description", response.mod.description)
         meta_file.setValue("modName", mod_name)
         meta_file.setValue("version", response.file_details.version)
-        meta_file.setValue("newestVersion", "")  # omit?
+        meta_file.setValue("newestVersion", "")
         meta_file.setValue("fileTime", QDateTime.currentDateTime())
         meta_file.setValue("fileCategory", response.file_details.category_id)
         meta_file.setValue("category", response.mod.category_id)
@@ -335,7 +357,8 @@ class DownloadManagerModel:
         meta_file.setValue("installed", str(mod.installed).lower())
         meta_file.setValue("uninstalled", "false")
         meta_file.setValue("paused", "false")
-        meta_file.setValue("removed", "false") # read settings to see if DLs are hidden?
+        meta_file.setValue("removed", "false")
+        meta_file.endGroup()
         meta_file.sync()
         return meta_file_name
 

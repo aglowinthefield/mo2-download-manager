@@ -53,11 +53,6 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         Column.FILE_ID: lambda item: item.nexus_file_id,
     }
 
-    # filename, filetime, version, installed
-    _data: List[DownloadEntry] = []
-    _model: DownloadManagerModel = None
-    _selected: Set[DownloadEntry] = set()
-
     # Column 0 is selection checkbox column (empty header), rest are data columns
     _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Hidden?", "Mod ID", "File ID")
 
@@ -65,6 +60,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         super().__init__()
         self.hash_worker: HashWorker
         self.hash_dialog: HashProgressDialog
+        self._data: List[DownloadEntry] = []
+        self._selected: Set[DownloadEntry] = set()
         self._model = DownloadManagerModel(organizer)
 
     def init_data(self, data: List[DownloadEntry]):
@@ -273,7 +270,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def delete_selected(self):
         if self._model:
-            for item in self._selected:
+            items_to_delete = list(self._selected)
+            for item in items_to_delete:
                 self._model.delete(item)
 
     def hide_selected(self):
