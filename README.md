@@ -1,6 +1,6 @@
 # MO2 Download Manager+
 
-![preview](./docs/window.png)
+![preview](https://i.imgur.com/i2dU3Vd.png)
 
 ## What It Does
 
