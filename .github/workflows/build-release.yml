@@ -21,19 +21,19 @@ jobs:
           cp -r src ./build/plugins/mo2-download-manager
           cp README.md ./build/plugins/mo2-download-manager
 
-      - name: Create zip file
+      - name: Create 7z archive
         run: |
           cd build
-          zip -r ../mo2-download-manager.zip plugins
+          7z a ../mo2-download-manager-${{ github.ref_name }}.7z plugins
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: mo2-download-manager
+          name: mo2-download-manager-${{ github.ref_name }}
           path: ./build
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: mo2-download-manager.zip
+          files: mo2-download-manager-${{ github.ref_name }}.7z
           generate_release_notes: true
