@@ -1,7 +1,22 @@
-﻿from datetime import datetime
+from datetime import datetime
+from enum import IntEnum
 from typing import Callable, Dict, List, Set
 
 import mobase
+
+
+class Column(IntEnum):
+    SELECTION = 0
+    NAME = 1
+    MOD_NAME = 2
+    FILENAME = 3
+    DATE = 4
+    VERSION = 5
+    SIZE = 6
+    INSTALLED = 7
+    HIDDEN = 8
+    MOD_ID = 9
+    FILE_ID = 10
 
 try:
     import PyQt6.QtCore as QtCore
@@ -25,18 +40,17 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     SELECTED_ROW_COLOR = QColor(0, 128, 0, 70)
 
-    # Column 0 is reserved for the selection checkbox
     COLUMN_MAPPING: Dict[int, Callable[[DownloadEntry], str]] = {
-        1: lambda item: item.name,
-        2: lambda item: item.modname,
-        3: lambda item: item.filename,
-        4: lambda item: item.filetime,
-        5: lambda item: item.version,
-        6: lambda item: item.file_size,
-        7: lambda item: item.installed,
-        8: lambda item: item.hidden,
-        9: lambda item: item.nexus_mod_id,
-        10: lambda item: item.nexus_file_id,
+        Column.NAME: lambda item: item.name,
+        Column.MOD_NAME: lambda item: item.modname,
+        Column.FILENAME: lambda item: item.filename,
+        Column.DATE: lambda item: item.filetime,
+        Column.VERSION: lambda item: item.version,
+        Column.SIZE: lambda item: item.file_size,
+        Column.INSTALLED: lambda item: item.installed,
+        Column.HIDDEN: lambda item: item.hidden,
+        Column.MOD_ID: lambda item: item.nexus_mod_id,
+        Column.FILE_ID: lambda item: item.nexus_file_id,
     }
 
     # filename, filetime, version, installed
@@ -74,8 +88,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return len(self._data)
 
     def _render_column(self, item, index):
-        # Column 0 is the selection checkbox column - no display text
-        if index.column() == 0:
+        if index.column() == Column.SELECTION:
             return None
 
         get_value = self.COLUMN_MAPPING.get(index.column())
@@ -85,7 +98,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         column_value = get_value(item)
 
-        if index.column() == 6:  # Size column (shifted by 1 due to selection column)
+        if index.column() == Column.SIZE:
             return sizeof_fmt(column_value)
         if isinstance(column_value, bool):
             return bool_emoji(column_value)
@@ -100,8 +113,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.ItemDataRole.BackgroundRole:
             return self.SELECTED_ROW_COLOR if item in self._selected else None
 
-        # Column 0 is the dedicated selection checkbox column
-        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == Column.SELECTION:
             return (
                 Qt.CheckState.Checked
                 if item in self._selected
@@ -111,8 +123,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         if role == Qt.ItemDataRole.DisplayRole:
             return self._render_column(item, index)
 
-        # Column 0 has no COLUMN_MAPPING entry, so handle alignment separately
-        if index.column() == 0:
+        if index.column() == Column.SELECTION:
             if role == Qt.ItemDataRole.TextAlignmentRole:
                 return Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignVCenter
             return None
@@ -130,7 +141,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return None
 
     def setData(self, index: QModelIndex, value, role=...):
-        if role == Qt.ItemDataRole.CheckStateRole and index.column() == 0:
+        if role == Qt.ItemDataRole.CheckStateRole and index.column() == Column.SELECTION:
             selected = value == CHECKED_STATE
             selected_data = self._data[index.row()]
             (
@@ -199,7 +210,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             # pylint:disable=no-member
             return Qt.ItemFlag.NoItemFlags
 
-        if index.column() == 0:
+        if index.column() == Column.SELECTION:
             return (
                 Qt.ItemFlag.ItemIsUserCheckable
                 | Qt.ItemFlag.ItemIsEnabled
@@ -211,8 +222,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def sort(self, column, order=...):
         self.layoutAboutToBeChanged.emit()
 
-        # Column 0 is the selection column - sort by selected state
-        if column == 0:
+        if column == Column.SELECTION:
             self._data.sort(
                 key=lambda row: row in self._selected,
                 reverse=(order == Qt.SortOrder.DescendingOrder),

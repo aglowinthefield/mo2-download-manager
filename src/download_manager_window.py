@@ -1,8 +1,8 @@
-﻿import webbrowser
+import webbrowser
 
 import mobase
 
-from .download_manager_table_model import DownloadManagerTableModel
+from .download_manager_table_model import Column, DownloadManagerTableModel
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, LoadingOverlay, create_basic_table_widget
@@ -51,7 +51,7 @@ class RefreshWorker(QThread):
 
 class DownloadFilterProxyModel(QSortFilterProxyModel):
 
-    FILTER_COLUMNS = (2, 3)  # Mod Name, Filename (shifted by 1 due to selection column)
+    FILTER_COLUMNS = (Column.MOD_NAME, Column.FILENAME)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -66,13 +66,16 @@ class DownloadFilterProxyModel(QSortFilterProxyModel):
         self.invalidateFilter()
 
     def lessThan(self, left, right):
-        # Column 0 is the selection checkbox - sort by check state
-        if left.column() == 0:
-            source = self.sourceModel()
-            # Direct set lookup is O(1) and avoids expensive data() calls
+        source = self.sourceModel()
+        col = left.column()
+        if col == Column.SELECTION:
             left_item = source._data[left.row()]
             right_item = source._data[right.row()]
             return (left_item in source._selected) < (right_item in source._selected)
+        if col == Column.SIZE:
+            left_item = source._data[left.row()]
+            right_item = source._data[right.row()]
+            return left_item.file_size < right_item.file_size
         return super().lessThan(left, right)
 
     def filterAcceptsRow(self, source_row, source_parent):
@@ -425,7 +428,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         table = create_basic_table_widget(self._alternate_row_colors)
         table.setModel(self._proxy_model)
         table.setSortingEnabled(True)
-        table.sortByColumn(1, Qt.SortOrder.AscendingOrder)  # Sort by Name column (column 0 is selection)
+        table.sortByColumn(Column.NAME, Qt.SortOrder.AscendingOrder)
         self._enable_column_customization(table)
         table.installEventFilter(self)
         return table
