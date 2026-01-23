@@ -65,10 +65,12 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         self._model = DownloadManagerModel(organizer)
 
     def init_data(self, data: List[DownloadEntry]):
+        logger.debug("init_data called with %d items", len(data) if data else 0)
+        self.layoutAboutToBeChanged.emit()
         self._data = data
         self._selected.clear()
-        self._notify_table_updated()
         self.layoutChanged.emit()
+        logger.debug("init_data complete")
 
     def headerData(self, section, _orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
@@ -270,9 +272,18 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     def delete_selected(self):
         if self._model:
+            logger.debug("delete_selected: starting with %d items", len(self._selected))
             items_to_delete = list(self._selected)
-            for item in items_to_delete:
+            self._selected.clear()
+            self.layoutAboutToBeChanged.emit()
+            for i, item in enumerate(items_to_delete):
+                logger.debug("delete_selected: deleting item %d/%d: %s", i + 1, len(items_to_delete), item.filename)
                 self._model.delete(item)
+                if item in self._data:
+                    self._data.remove(item)
+            logger.debug("delete_selected: emitting layoutChanged")
+            self.layoutChanged.emit()
+            logger.debug("delete_selected: complete")
 
     def hide_selected(self):
         if self._model:

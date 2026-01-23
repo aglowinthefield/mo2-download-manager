@@ -6,6 +6,7 @@ from .download_manager_table_model import Column, DownloadManagerTableModel
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, LoadingOverlay, create_basic_table_widget
+from .util import logger
 
 import json
 
@@ -38,15 +39,18 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class RefreshWorker(QThread):
     """Background worker thread for refreshing download data."""
-    finished = pyqtSignal()
+    finished = pyqtSignal(list)
 
-    def __init__(self, table_model):
+    def __init__(self, model):
         super().__init__()
-        self._table_model = table_model
+        self._model = model
 
     def run(self):
-        self._table_model.refresh()
-        self.finished.emit()
+        logger.debug("RefreshWorker.run: starting model.refresh()")
+        self._model.refresh()
+        logger.debug("RefreshWorker.run: model.refresh() complete, emitting finished with %d items", len(self._model.data) if self._model.data else 0)
+        self.finished.emit(self._model.data)
+        logger.debug("RefreshWorker.run: finished signal emitted")
 
 
 class DownloadFilterProxyModel(QSortFilterProxyModel):
@@ -383,38 +387,52 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         print(result)
 
     def delete_selected(self):
+        logger.debug("window.delete_selected: starting")
+        self._table_widget.selectionModel().clearSelection()
         self._table_model.delete_selected()
+        logger.debug("window.delete_selected: table_model.delete_selected complete, calling refresh_data")
         self.refresh_data()
+        logger.debug("window.delete_selected: refresh_data called")
 
     def hide_selected(self):
+        self._table_widget.selectionModel().clearSelection()
         self._table_model.hide_selected()
         self.refresh_data()
 
     def refresh_data(self):
+        logger.debug("refresh_data: starting")
         if self._is_refreshing:
+            logger.debug("refresh_data: already refreshing, returning")
             return
         self._is_refreshing = True
         self._refresh_button.setEnabled(False)
 
-        # Show loading overlay
         self._loading_overlay.set_message("Refreshing Downloads...")
         self._loading_overlay.set_sub_message("Scanning download folder...")
         self._loading_overlay.show_overlay()
 
-        # Run refresh in background thread
-        self._refresh_worker = RefreshWorker(self._table_model)
+        logger.debug("refresh_data: starting background worker")
+        self._refresh_worker = RefreshWorker(self._table_model._model)
         self._refresh_worker.finished.connect(self._on_refresh_complete)  # type: ignore
         self._refresh_worker.start()
+        logger.debug("refresh_data: background worker started")
 
-    def _on_refresh_complete(self):
+    def _on_refresh_complete(self, data):
+        logger.debug("_on_refresh_complete: received %d items", len(data) if data else 0)
+        self._table_model.init_data(data)
+        logger.debug("_on_refresh_complete: init_data complete")
         self._loading_overlay.hide_overlay()
         if not self._has_resized:
+            logger.debug("_on_refresh_complete: resizing window")
             self.resize_window()
             self._has_resized = True
+        logger.debug("_on_refresh_complete: reapplying sort")
         self.reapply_sort()
+        self.update_button_states()
         self._refresh_button.setEnabled(True)
         self._is_refreshing = False
         self._has_loaded_data = True
+        logger.debug("_on_refresh_complete: complete")
 
     # endregion
 

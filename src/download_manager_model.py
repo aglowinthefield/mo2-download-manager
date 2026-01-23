@@ -86,7 +86,7 @@ def _parse_version_tuple(version: str) -> Tuple:
 
 
 def _load_meta_file(meta_path: Path):
-    parser = ConfigParser()
+    parser = ConfigParser(interpolation=None)
     parser.optionxform = str  # preserve key casing used by MO2
 
     try:
@@ -285,14 +285,19 @@ class DownloadManagerModel:
         return not_installed
 
     def delete(self, item: DownloadEntry) -> bool:
+        logger.debug("model.delete: looking for item %s", item.filename)
         file_to_delete = next((d for d in self.__data if d == item), None)
         if file_to_delete is None:
+            logger.debug("model.delete: item not found in data")
             return False
         try:
             if file_to_delete.raw_file_path and file_to_delete.raw_file_path.is_file():
+                logger.debug("model.delete: deleting file %s", file_to_delete.raw_file_path)
                 file_to_delete.raw_file_path.unlink()
             if file_to_delete.raw_meta_path and file_to_delete.raw_meta_path.is_file():
+                logger.debug("model.delete: deleting meta %s", file_to_delete.raw_meta_path)
                 file_to_delete.raw_meta_path.unlink()
+            logger.debug("model.delete: delete successful")
             return True
         except Exception as exc:
             logger.error("Failed to delete %s: %s", item.filename, exc)
