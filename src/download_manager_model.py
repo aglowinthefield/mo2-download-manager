@@ -382,6 +382,23 @@ class DownloadManagerModel:
             self.__organizer.installMod(str(mod.raw_file_path))
         _hide_download(mod)
 
+    def install_mod_safe(self, mod: DownloadEntry) -> bool:
+        mo2_version = self.__organizer.appVersion().canonicalString()
+        logger.debug("install_mod_safe: starting for %s (MO2 version %s)", mod.name or mod.filename, mo2_version)
+        try:
+            logger.debug("install_mod_safe: about to call organizer.installMod for %s", mod.filename)
+            if is_above_2_4(mo2_version):
+                self.__organizer.installMod(mod.raw_file_path)
+            else:
+                self.__organizer.installMod(str(mod.raw_file_path))
+            logger.debug("install_mod_safe: organizer.installMod returned for %s", mod.filename)
+            result = _hide_download(mod)
+            logger.debug("install_mod_safe: _hide_download returned %s for %s", result, mod.filename)
+            return result
+        except Exception as e:
+            logger.error("install_mod_safe: exception for %s: %s", mod.filename, e)
+            return False
+
     @property
     def data(self):
         return self.__data

@@ -240,6 +240,9 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     def get_selected(self):
         return self._selected
 
+    def get_selected_size(self) -> float:
+        return sum(item.file_size for item in self._selected)
+
     def requery(self, mod: DownloadEntry, md5_hash: str):
         self._model.requery(mod, md5_hash)
         self._data = self._model.data

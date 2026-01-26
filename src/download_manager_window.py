@@ -2,11 +2,12 @@ import webbrowser
 
 import mobase
 
+from .bulk_install_dialog import BulkInstallPanel
 from .download_manager_table_model import Column, DownloadManagerTableModel
 from .hash_worker import HashResult, HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, LoadingOverlay, create_basic_table_widget
-from .util import logger
+from .util import logger, sizeof_fmt
 
 import json
 
@@ -145,6 +146,10 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._secondary_controls = self._create_secondary_controls()
             self._main_layout.addWidget(self._secondary_controls)
             self._main_layout.addWidget(self._table_widget)
+
+            self._install_panel = BulkInstallPanel(self)
+            self._install_panel.installation_finished.connect(self._on_install_finished)
+            self._main_layout.addWidget(self._install_panel)
 
             self.setLayout(self._main_layout)
 
@@ -358,13 +363,35 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._delete_action.setText(self.BUTTON_TEXT["DELETE"](selected_count))
         self._install_action.setText(self.BUTTON_TEXT["INSTALL"](selected_count))
 
-        self._selection_count_label.setText(f"{selected_count} mods selected")
+        if selected_count > 0:
+            total_size = self._table_model.get_selected_size()
+            self._selection_count_label.setText(f"{selected_count} selected, {sizeof_fmt(total_size)}")
+        else:
+            self._selection_count_label.setText("0 mods selected")
 
     # endregion
 
     # region
     def install_selected(self):
-        self._table_model.install_selected()
+        selected = list(self._table_model.get_selected())
+        logger.debug("install_selected: starting with %d selected mods", len(selected))
+        if not selected:
+            logger.debug("install_selected: no mods selected, returning")
+            return
+
+        if self._install_panel.is_running():
+            logger.debug("install_selected: installation already in progress")
+            return
+
+        logger.debug("install_selected: starting installation panel")
+        self._table_model.select_none()
+        self._install_panel.start_installation(
+            selected,
+            self._table_model._model.install_mod_safe
+        )
+
+    def _on_install_finished(self):
+        logger.debug("_on_install_finished: refreshing data")
         self.refresh_data()
 
     def requery_selected(self):
