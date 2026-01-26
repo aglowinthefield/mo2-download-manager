@@ -678,6 +678,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             watched == self._table_widget
             and event.type() == QEvent.Type.KeyPress
             and event.key() == Qt.Key.Key_Space
+            and not self._search_input.hasFocus()
         ):
             if self._toggle_selected_rows():
                 return True

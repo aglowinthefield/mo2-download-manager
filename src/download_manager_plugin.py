@@ -1,4 +1,4 @@
-﻿import mobase
+import mobase
 
 from .download_manager_window import DownloadManagerWindow
 from .util import logger
