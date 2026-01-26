@@ -1,7 +1,9 @@
+import json
 import os
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from configparser import ConfigParser
+from dataclasses import asdict
 from datetime import datetime
 from pathlib import Path
 from typing import List, Set, Tuple
@@ -358,7 +360,7 @@ class DownloadManagerModel:
         meta_file.setValue("fileCategory", response.file_details.category_id)
         meta_file.setValue("category", response.mod.category_id)
         meta_file.setValue("repository", "Nexus")
-        meta_file.setValue("userData", QVariant(response.mod.user))
+        meta_file.setValue("userData", json.dumps(asdict(response.mod.user)))
         meta_file.setValue("installed", str(mod.installed).lower())
         meta_file.setValue("uninstalled", "false")
         meta_file.setValue("paused", "false")
