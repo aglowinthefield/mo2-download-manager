@@ -1,0 +1,35 @@
+name: Download action tests
+
+on:
+  push:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/tests.yml"
+  pull_request:
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "pyproject.toml"
+      - ".github/workflows/tests.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        qt: ["PyQt5>=5.15,<6", "PyQt6>=6.8,<7"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Qt binding
+        run: python -m pip install "${{ matrix.qt }}"
+      - name: Run behavioral tests
+        run: python -B -m unittest discover -s tests -v

@@ -1,28 +1,27 @@
+import json
 import webbrowser
+from pathlib import Path
 
 import mobase
 
 from .bulk_install_dialog import BulkInstallPanel
 from .download_manager_table_model import Column, DownloadManagerTableModel
-from .hash_worker import HashResult, HashWorker
+from .download_manager_model import DownloadManagerModel
+from .hash_worker import HashWorker
 from .mo2_compat_utils import CHECKED_STATE
 from .ui_statics import HashProgressDialog, LoadingOverlay, create_basic_table_widget
-from .util import logger, sizeof_fmt
-
-import json
-
-from pathlib import Path
+from .util import sizeof_fmt
 
 try:
     import PyQt6.QtWidgets as QtWidgets
     from PyQt6.QtGui import QAction, QScreen, QIcon
-    from PyQt6.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread, pyqtSignal
-    from PyQt6.QtWidgets import QApplication, QSizePolicy, QMenu, QStyle
+    from PyQt6.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread
+    from PyQt6.QtWidgets import QApplication, QMenu, QStyle
 except ImportError:
     import PyQt5.QtWidgets as QtWidgets
-    from PyQt5.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread, pyqtSignal
+    from PyQt5.QtCore import Qt, QEvent, QSortFilterProxyModel, QThread
     from PyQt5.QtGui import QScreen, QIcon
-    from PyQt5.QtWidgets import QApplication, QSizePolicy, QMenu, QAction, QStyle
+    from PyQt5.QtWidgets import QApplication, QMenu, QAction, QStyle
 
 # Icon paths
 ICON_DIR = Path(__file__).parent / "icon"
@@ -40,18 +39,18 @@ def show_error(message, header, icon=QtWidgets.QMessageBox.Icon.Warning):
 
 class RefreshWorker(QThread):
     """Background worker thread for refreshing download data."""
-    finished = pyqtSignal(list)
-
     def __init__(self, model):
         super().__init__()
         self._model = model
+        self.snapshot = model.data
+        self.error = ""
 
     def run(self):
-        logger.debug("RefreshWorker.run: starting model.refresh()")
-        self._model.refresh()
-        logger.debug("RefreshWorker.run: model.refresh() complete, emitting finished with %d items", len(self._model.data) if self._model.data else 0)
-        self.finished.emit(self._model.data)
-        logger.debug("RefreshWorker.run: finished signal emitted")
+        try:
+            self.snapshot = self._model.refresh()
+        except Exception as exc:
+            self.snapshot = self._model.data
+            self.error = str(exc) or type(exc).__name__
 
 
 class DownloadFilterProxyModel(QSortFilterProxyModel):
@@ -130,7 +129,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
 
             self.__organizer = organizer
 
-            self._table_model = DownloadManagerTableModel(organizer)
+            self._operation = None
+            self._model = DownloadManagerModel(organizer)
+            self._table_model = DownloadManagerTableModel(organizer, self._model)
             self._proxy_model = DownloadFilterProxyModel(self)
             self._proxy_model.setSourceModel(self._table_model)
 
@@ -168,6 +169,7 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._center_window()
 
             self._table_model.dataChanged.connect(self.update_button_states)
+            self._table_model.modelReset.connect(self.update_button_states)
 
             self.setWindowModality(Qt.WindowModality.NonModal)
 
@@ -349,7 +351,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
         self._toggle_button_operations(len(selected))
 
     def _toggle_button_operations(self, selected_count):
-        operations_enabled = selected_count > 0
+        busy = self._operation is not None or self._model.busy
+        operations_enabled = selected_count > 0 and not busy
+        self._refresh_button.setEnabled(not busy)
         for action in (
             self._hide_action,
             self._delete_action,
@@ -357,6 +361,9 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._install_action,
         ):
             action.setEnabled(operations_enabled)
+        if self._model.stale:
+            self._hide_action.setEnabled(False)
+            self._delete_action.setEnabled(False)
 
         self._hide_action.setText(self.BUTTON_TEXT["HIDE"](selected_count))
         self._requery_action.setText(self.BUTTON_TEXT["REQUERY"](selected_count))
@@ -368,98 +375,178 @@ class DownloadManagerWindow(QtWidgets.QDialog):
             self._selection_count_label.setText(f"{selected_count} selected, {sizeof_fmt(total_size)}")
         else:
             self._selection_count_label.setText("0 mods selected")
+        if self._model.stale:
+            self._selection_count_label.setText(self._selection_count_label.text() + " — refresh needed")
 
     # endregion
 
     # region
     def install_selected(self):
         selected = list(self._table_model.get_selected())
-        logger.debug("install_selected: starting with %d selected mods", len(selected))
-        if not selected:
-            logger.debug("install_selected: no mods selected, returning")
+        if not selected or not self._begin_operation("install"):
             return
-
-        if self._install_panel.is_running():
-            logger.debug("install_selected: installation already in progress")
-            return
-
-        logger.debug("install_selected: starting installation panel")
-        self._table_model.select_none()
-        self._install_panel.start_installation(
-            selected,
-            self._table_model._model.install_mod_safe
-        )
+        try:
+            self._table_model.select_none()
+            self._install_panel.start_installation(selected, self._model.install_mod_safe)
+        except Exception as exc:
+            self._end_operation()
+            show_error(str(exc), "Installation could not start.")
 
     def _on_install_finished(self):
-        logger.debug("_on_install_finished: refreshing data")
-        self.refresh_data()
+        if self._operation == "install":
+            self._end_operation()
+            self.refresh_data()
 
     def requery_selected(self):
-        if not self._validate_nexus_api_key():
+        targets = tuple(self._table_model.get_selected())
+        if not targets or not self._begin_operation("requery"):
             return
+        try:
+            if not self._validate_nexus_api_key():
+                return
+            for item in targets:
+                dialog = HashProgressDialog(self)
+                worker = HashWorker(item)
+                self.hash_dialog, self.hash_worker = dialog, worker
+                try:
+                    worker.progress_updated.connect(dialog.update_progress)
+                    worker.finished.connect(dialog.accept)
+                    dialog.rejected.connect(worker.requestInterruption)
+                    worker.start()
+                    accepted = dialog.exec() == QtWidgets.QDialog.DialogCode.Accepted
+                finally:
+                    # Keep the guard until the worker stops, including dialog failures.
+                    # Callbacks belong to this dialog, never the next download's.
+                    worker.requestInterruption()
+                    worker.wait()
+                    dialog.deleteLater()
+                if not accepted:
+                    break
+                if worker.error:
+                    show_error(worker.error, f"Could not hash {item.raw_file_path.name}.")
+                elif worker.result is not None:
+                    self._table_model.requery(item, worker.result.md5_hash)
+        except Exception as exc:
+            show_error(str(exc), "Re-query could not finish.")
+        finally:
+            self._end_operation()
 
-        to_requery = self._table_model.get_selected().copy() # don't use selected directly, the model will change it
-        for item in to_requery:
-            self.hash_dialog = HashProgressDialog(self) # type: ignore
-            self.hash_worker = HashWorker(item)
-            self.hash_worker.progress_updated.connect(self.hash_dialog.update_progress)
-            self.hash_worker.hash_computed.connect(self._on_hash_complete)
+    def _begin_operation(self, operation):
+        if self._operation is not None or self._model.busy or self._is_refreshing:
+            return False
+        if operation in ("delete", "hide") and self._model.stale:
+            return False
+        self._operation = operation
+        self.update_button_states()
+        return True
 
-            self.hash_worker.start()
-            self.hash_dialog.exec()
-
-    def _on_hash_complete(self, result: HashResult):
-        self.hash_dialog.accept()
-        self._table_model.requery(result.mod, result.md5_hash)
-        print(result)
+    def _end_operation(self):
+        self._operation = None
+        self.update_button_states()
 
     def delete_selected(self):
-        logger.debug("window.delete_selected: starting")
-        self._table_widget.selectionModel().clearSelection()
-        self._table_model.delete_selected()
-        logger.debug("window.delete_selected: table_model.delete_selected complete, calling refresh_data")
-        self.refresh_data()
-        logger.debug("window.delete_selected: refresh_data called")
+        self._run_download_action("delete")
 
     def hide_selected(self):
-        self._table_widget.selectionModel().clearSelection()
-        self._table_model.hide_selected()
-        self.refresh_data()
+        self._run_download_action("hide")
+
+    def _run_download_action(self, action):
+        targets = tuple(sorted(self._table_model.get_selected(), key=lambda item: str(item.raw_file_path)))
+        if not targets or not self._begin_operation(action):
+            return
+        try:
+            if action == "delete" and not self._confirm_delete(targets):
+                return
+            apply_action = (self._table_model.delete_selected if action == "delete"
+                            else self._table_model.hide_selected)
+            result = apply_action(targets)
+            self._table_widget.selectionModel().clearSelection()
+            self.reapply_sort()
+            self._show_action_result(action, result)
+        except Exception as exc:
+            show_error(str(exc), "Download action could not finish.")
+        finally:
+            self._end_operation()
+
+    def _confirm_delete(self, targets):
+        visible_paths = set()
+        for row in range(self._table_model.rowCount()):
+            if self._proxy_model.mapFromSource(self._table_model.index(row, 0)).isValid():
+                visible_paths.add(self._table_model._data[row].raw_file_path)
+        filtered_count = sum(item.raw_file_path not in visible_paths for item in targets)
+        answer = QtWidgets.QMessageBox.question(
+            self, "Delete downloads?",
+            f"Permanently delete {len(targets)} checked downloads ({filtered_count} filtered-out)?\n\n"
+            "This deletes each archive and its exact .meta sidecar. Installed mods are not deleted. "
+            "There is no rollback.",
+            QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No,
+            QtWidgets.QMessageBox.StandardButton.No,
+        )
+        return answer == QtWidgets.QMessageBox.StandardButton.Yes
+
+    def _show_action_result(self, action, result):
+        counts = {status: sum(item.status == status for item in result.outcomes)
+                  for status in ("complete", "partial", "failed")}
+        box = QtWidgets.QMessageBox(self)
+        box.setWindowTitle("Delete downloads" if action == "delete" else "Mark downloads hidden")
+        box.setText(f"{counts['complete']} complete, {counts['partial']} partial, {counts['failed']} failed.")
+        warning = counts["partial"] or counts["failed"] or result.refresh_error
+        box.setIcon(QtWidgets.QMessageBox.Icon.Warning if warning else QtWidgets.QMessageBox.Icon.Information)
+        if result.refresh_error:
+            box.setInformativeText(
+                "The collection could not be refreshed. Verified changes are retained, but the view is stale. "
+                "Delete and Hide are blocked until Refresh succeeds.\n" + result.refresh_error
+            )
+        details = []
+        for outcome in result.outcomes:
+            lines = [f"{outcome.download.raw_file_path}: {outcome.status}"]
+            if outcome.status == "complete" and not outcome.changed_paths:
+                lines.append("Already absent; no files needed deletion." if action == "delete"
+                             else "Hidden marker already present; no metadata write needed.")
+            lines.extend(f"Changed: {path}" for path in outcome.changed_paths)
+            lines.extend(f"Remaining / unresolved: {path}" for path in outcome.remaining_paths)
+            lines.extend(f"Write attempted; persistence uncertain: {path}" for path in outcome.uncertain_paths)
+            if outcome.error:
+                lines.append(outcome.error)
+            details.append("\n".join(lines))
+        box.setDetailedText("\n\n".join(details))
+        box.setStandardButtons(QtWidgets.QMessageBox.StandardButton.Ok)
+        box.exec()
 
     def refresh_data(self):
-        logger.debug("refresh_data: starting")
-        if self._is_refreshing:
-            logger.debug("refresh_data: already refreshing, returning")
+        if not self._begin_operation("refresh"):
             return
         self._is_refreshing = True
-        self._refresh_button.setEnabled(False)
+        try:
+            self._loading_overlay.set_message("Refreshing Downloads...")
+            self._loading_overlay.set_sub_message("Scanning download folder...")
+            self._loading_overlay.show_overlay()
+            self._refresh_worker = RefreshWorker(self._model)
+            self._refresh_worker.finished.connect(self._on_refresh_complete)
+            self._refresh_worker.start()
+        except Exception as exc:
+            self._finish_refresh()
+            show_error(str(exc), "Refresh could not start.")
 
-        self._loading_overlay.set_message("Refreshing Downloads...")
-        self._loading_overlay.set_sub_message("Scanning download folder...")
-        self._loading_overlay.show_overlay()
+    def _on_refresh_complete(self):
+        worker = self._refresh_worker
+        worker.wait()
+        try:
+            self._table_model.init_data(worker.snapshot)
+            if not self._has_resized:
+                self.resize_window()
+                self._has_resized = True
+            self.reapply_sort()
+            self._has_loaded_data = not bool(worker.error)
+        finally:
+            self._finish_refresh()
+        if worker.error:
+            show_error(worker.error, "Refresh failed. Last known downloads retained; Refresh to retry.")
 
-        logger.debug("refresh_data: starting background worker")
-        self._refresh_worker = RefreshWorker(self._table_model._model)
-        self._refresh_worker.finished.connect(self._on_refresh_complete)  # type: ignore
-        self._refresh_worker.start()
-        logger.debug("refresh_data: background worker started")
-
-    def _on_refresh_complete(self, data):
-        logger.debug("_on_refresh_complete: received %d items", len(data) if data else 0)
-        self._table_model.init_data(data)
-        logger.debug("_on_refresh_complete: init_data complete")
+    def _finish_refresh(self):
         self._loading_overlay.hide_overlay()
-        if not self._has_resized:
-            logger.debug("_on_refresh_complete: resizing window")
-            self.resize_window()
-            self._has_resized = True
-        logger.debug("_on_refresh_complete: reapplying sort")
-        self.reapply_sort()
-        self.update_button_states()
-        self._refresh_button.setEnabled(True)
         self._is_refreshing = False
-        self._has_loaded_data = True
-        logger.debug("_on_refresh_complete: complete")
+        self._end_operation()
 
     # endregion
 

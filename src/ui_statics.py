@@ -12,6 +12,7 @@ except ImportError:
 class HashProgressDialog(QtWidgets.QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.cancelled = False
         self.setWindowTitle("🛠️ Hashing Archive...")
         self.progress_bar = QtWidgets.QProgressBar() # import properly later
         self.progress_bar.setRange(0, 100)
@@ -27,6 +28,15 @@ class HashProgressDialog(QtWidgets.QDialog):
 
     def cancel(self):
         self.reject()
+
+    def reject(self):
+        self.cancelled = True
+        super().reject()
+
+    def accept(self):
+        # A queued worker completion must not turn a cancellation into success.
+        if not self.cancelled:
+            super().accept()
 
 def create_basic_table_widget(alternate_rows: bool = True):
     """Set the model after creating this. Cleans up window code"""

@@ -1,7 +1,7 @@
 ﻿from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Union
+from typing import Tuple, Union
 
 from .util import DictMixin
 
@@ -22,3 +22,4 @@ class DownloadEntry(DictMixin):
     nexus_file_id: Union[int, None]
     repository: Union[str, None]
     game_name: Union[str, None]
+    archive_identity: Tuple[int, ...] = ()

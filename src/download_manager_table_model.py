@@ -29,9 +29,8 @@ except ImportError:
 
 from .download_entry import DownloadEntry
 from .download_manager_model import DownloadManagerModel
-from .hash_worker import HashWorker
 from .mo2_compat_utils import CHECKED_STATE
-from .ui_statics import HashProgressDialog, bool_emoji, value_or_no
+from .ui_statics import bool_emoji, value_or_no
 from .util import logger, sizeof_fmt
 
 
@@ -56,21 +55,25 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
     # Column 0 is selection checkbox column (empty header), rest are data columns
     _header = ("", "Name", "Mod Name", "Filename", "Date", "Version", "Size", "Installed?", "Hidden?", "Mod ID", "File ID")
 
-    def __init__(self, organizer: mobase.IOrganizer):
+    def __init__(self, organizer: mobase.IOrganizer, model=None):
         super().__init__()
-        self.hash_worker: HashWorker
-        self.hash_dialog: HashProgressDialog
         self._data: List[DownloadEntry] = []
+        self._snapshot = ()
         self._selected: Set[DownloadEntry] = set()
-        self._model = DownloadManagerModel(organizer)
+        self._hide_installed = False
+        self._sort_column = Column.NAME
+        self._sort_order = Qt.SortOrder.AscendingOrder
+        self._model = model if model is not None else DownloadManagerModel(organizer)
 
-    def init_data(self, data: List[DownloadEntry]):
-        logger.debug("init_data called with %d items", len(data) if data else 0)
-        self.layoutAboutToBeChanged.emit()
-        self._data = data
-        self._selected.clear()
-        self.layoutChanged.emit()
-        logger.debug("init_data complete")
+    def init_data(self, data, completed_paths=()):
+        """Replace presentation rows; checks follow surviving archive paths."""
+        checked_paths = {item.raw_file_path for item in self._selected} - set(completed_paths)
+        self.beginResetModel()
+        self._snapshot = tuple(data)
+        self._selected = {item for item in self._snapshot if item.raw_file_path in checked_paths}
+        self._data = [item for item in self._snapshot if not self._hide_installed or not item.installed]
+        self._sort_rows()
+        self.endResetModel()
 
     def headerData(self, section, _orientation, role=...):
         if role == Qt.ItemDataRole.DisplayRole:
@@ -106,6 +109,8 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
         return value_or_no(column_value)
 
     def data(self, index: QModelIndex, role: int = ...):
+        if not index.isValid() or not 0 <= index.row() < len(self._data):
+            return None
         item = self._data[index.row()]
 
         # Decorative roles will go first to ensure they are applied evenly across columns
@@ -146,7 +151,7 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             (
                 self._selected.add(selected_data)
                 if selected
-                else self._selected.remove(selected_data)
+                else self._selected.discard(selected_data)
             )
             self.dataChanged.emit(index, index, [Qt.ItemDataRole.CheckStateRole])
             return True
@@ -218,9 +223,14 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
         return Qt.ItemFlag.ItemIsEnabled | Qt.ItemFlag.ItemIsSelectable
 
-    def sort(self, column, order=...):
+    def sort(self, column, order=Qt.SortOrder.AscendingOrder):
         self.layoutAboutToBeChanged.emit()
+        self._sort_column, self._sort_order = column, order
+        self._sort_rows()
+        self.layoutChanged.emit()
 
+    def _sort_rows(self):
+        column, order = self._sort_column, self._sort_order
         if column == Column.SELECTION:
             self._data.sort(
                 key=lambda row: row in self._selected,
@@ -235,19 +245,16 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
                 ),
                 reverse=(order == Qt.SortOrder.DescendingOrder),
             )
-        self.layoutChanged.emit()
 
     def get_selected(self):
-        return self._selected
+        return frozenset(self._selected)
 
     def get_selected_size(self) -> float:
         return sum(item.file_size for item in self._selected)
 
     def requery(self, mod: DownloadEntry, md5_hash: str):
         self._model.requery(mod, md5_hash)
-        self._data = self._model.data
-        self._selected.remove(mod)
-        self._notify_table_updated()
+        self.init_data(self._model.data, completed_paths=(mod.raw_file_path,))
 
     def select_duplicates(self):
         if self._model:
@@ -273,32 +280,26 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
             self._model.bulk_install(self._selected)
             self._notify_table_updated()
 
-    def delete_selected(self):
-        if self._model:
-            logger.debug("delete_selected: starting with %d items", len(self._selected))
-            items_to_delete = list(self._selected)
-            self._selected.clear()
-            self.layoutAboutToBeChanged.emit()
-            for i, item in enumerate(items_to_delete):
-                logger.debug("delete_selected: deleting item %d/%d: %s", i + 1, len(items_to_delete), item.filename)
-                self._model.delete(item)
-                if item in self._data:
-                    self._data.remove(item)
-            logger.debug("delete_selected: emitting layoutChanged")
-            self.layoutChanged.emit()
-            logger.debug("delete_selected: complete")
+    def delete_selected(self, items=None):
+        targets = tuple(self._selected) if items is None else tuple(items)
+        result = self._model.delete_downloads(targets)
+        self._apply_result(result)
+        return result
 
-    def hide_selected(self):
-        if self._model:
-            self._model.bulk_hide(self._selected)
+    def hide_selected(self, items=None):
+        targets = tuple(self._selected) if items is None else tuple(items)
+        result = self._model.hide_downloads(targets)
+        self._apply_result(result)
+        return result
+
+    def _apply_result(self, result):
+        completed = {outcome.download.raw_file_path for outcome in result.outcomes
+                     if outcome.status == "complete"}
+        self.init_data(result.snapshot, completed_paths=completed)
 
     def toggle_show_installed(self, hide_installed: bool):
-        self.layoutAboutToBeChanged.emit()
-        if hide_installed:
-            self._data = self._model.data_no_installed
-        else:
-            self._data = self._model.data
-        self.layoutChanged.emit()
+        self._hide_installed = hide_installed
+        self.init_data(self._snapshot)
 
     def refresh(self):
         self._model.refresh()
@@ -316,4 +317,4 @@ class DownloadManagerTableModel(QtCore.QAbstractTableModel):
 
     @property
     def selected(self):
-        return self._selected
+        return self.get_selected()
