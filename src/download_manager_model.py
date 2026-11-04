@@ -542,6 +542,7 @@ class DownloadManagerModel:
         name = response.file_details.name
         mod_name = response.mod.name
 
+        # Qt writes root keys under [General]; beginGroup("General") creates [%General].
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
         meta_file.setValue("gameName", self.__organizer.managedGame().gameShortName())
         meta_file.setValue("modID", response.mod.mod_id)

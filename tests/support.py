@@ -23,6 +23,9 @@ class Organizer:
     def downloadsPath(self):
         return str(self.directory)
 
+    def managedGame(self):
+        return types.SimpleNamespace(gameShortName=lambda: "skyrimse")
+
     def pluginSetting(self, plugin, key):
         return self.settings.get((plugin, key), "")
 

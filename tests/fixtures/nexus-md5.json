@@ -1,0 +1,60 @@
+[
+  {
+    "mod": {
+      "name": "Example mod",
+      "summary": "Mod-page summary",
+      "description": "[b]Full mod-page description[/b]",
+      "picture_url": "",
+      "mod_downloads": 1,
+      "mod_unique_downloads": 1,
+      "uid": 1234,
+      "user": {
+        "member_id": 1,
+        "member_group_id": 1,
+        "name": "Example author"
+      },
+      "mod_id": 1234,
+      "game_id": 1704,
+      "allow_rating": true,
+      "domain_name": "skyrimspecialedition",
+      "category_id": 5,
+      "version": "2.0",
+      "endorsement_count": 0,
+      "created_timestamp": 0,
+      "created_time": "1970-01-01T00:00:00Z",
+      "updated_timestamp": 0,
+      "updated_time": "1970-01-01T00:00:00Z",
+      "author": "Example author",
+      "uploaded_by": "Example author",
+      "uploaded_users_profile_url": "",
+      "contains_adult_content": false,
+      "status": "published",
+      "available": true,
+      "endorsement": null
+    },
+    "file_details": {
+      "id": [
+        5678
+      ],
+      "uid": 5678,
+      "file_id": 5678,
+      "name": "Example main file",
+      "version": "1.5",
+      "category_id": 1,
+      "category_name": "MAIN",
+      "is_primary": true,
+      "size": 1,
+      "file_name": "Example.7z",
+      "uploaded_timestamp": 0,
+      "uploaded_time": "1970-01-01T00:00:00Z",
+      "mod_version": "2.0",
+      "external_virus_scan_url": "",
+      "description": "Only this file's installation notes.",
+      "size_kb": 1,
+      "size_in_bytes": 16,
+      "changelog_html": "",
+      "content_preview_link": "",
+      "md5": "00000000000000000000000000000000"
+    }
+  }
+]
