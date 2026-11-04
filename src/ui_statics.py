@@ -38,9 +38,75 @@ class HashProgressDialog(QtWidgets.QDialog):
         if not self.cancelled:
             super().accept()
 
+def _luminance(color):
+    channels = (color.redF(), color.greenF(), color.blueF())
+    linear = (value / 12.92 if value <= 0.04045 else ((value + 0.055) / 1.055) ** 2.4
+              for value in channels)
+    return sum(value * weight for value, weight in zip(linear, (0.2126, 0.7152, 0.0722)))
+
+
+def _readable_background(text, brush):
+    """Return None for backgrounds whose rendered contrast cannot be inferred."""
+    if brush.style() == Qt.BrushStyle.SolidPattern:
+        colors = [brush.color()]
+    elif brush.gradient() is not None:
+        colors = [color for _, color in brush.gradient().stops()]
+    else:
+        return None
+    if not colors or text.alpha() != 255 or any(color.alpha() != 255 for color in colors):
+        return None
+    foreground = _luminance(text)
+    for color in colors:
+        low, high = sorted((foreground, _luminance(color)))
+        if (high + 0.05) / (low + 0.05) < 4.5:
+            return False
+    if len(colors) > 1:
+        # Passing stops alone is insufficient: black-to-white crosses grey text.
+        # Bound every RGB channel across all stops, hence every interpolation.
+        # If this conservative box cannot establish contrast, do not guess.
+        channels = list(zip(*(color.getRgbF()[:3] for color in colors)))
+        darkest = _luminance(QColor.fromRgbF(*(min(channel) for channel in channels)))
+        lightest = _luminance(QColor.fromRgbF(*(max(channel) for channel in channels)))
+        if ((foreground + 0.05) / (lightest + 0.05) < 4.5
+                and (darkest + 0.05) / (foreground + 0.05) < 4.5):
+            return None
+    return True
+
+
+class _ReadableTableView(QtWidgets.QTableView):
+    """Repair an unreadable inherited stripe without overriding the host theme."""
+
+    def _repair_alternate_palette(self, option):
+        if not self.alternatingRowColors():
+            return
+        palette = QPalette(option.palette)
+        for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+            text = palette.color(group, QPalette.ColorRole.Text)
+            alternate = palette.brush(group, QPalette.ColorRole.AlternateBase)
+            base = palette.brush(group, QPalette.ColorRole.Base)
+            if (_readable_background(text, alternate) is False
+                    and _readable_background(text, base) is True):
+                # Some MO2 stylesheets theme tree/list stripes but omit tables.
+                # Reuse the readable normal brush, including gradients. Only the
+                # paint option changes, so a later theme/palette remains authoritative.
+                palette.setBrush(group, QPalette.ColorRole.AlternateBase, base)
+        option.palette = palette
+
+    def viewOptions(self):
+        """Qt5 view-option hook."""
+        option = super().viewOptions()
+        self._repair_alternate_palette(option)
+        return option
+
+    def initViewItemOption(self, option):
+        """Qt6 equivalent of viewOptions."""
+        super().initViewItemOption(option)
+        self._repair_alternate_palette(option)
+
+
 def create_basic_table_widget(alternate_rows: bool = True):
     """Set the model after creating this. Cleans up window code"""
-    table = QtWidgets.QTableView()
+    table = _ReadableTableView()
     table.verticalHeader().setVisible(False)
     table.setAlternatingRowColors(alternate_rows)
     table.setSizeAdjustPolicy(
