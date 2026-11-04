@@ -543,13 +543,12 @@ class DownloadManagerModel:
         mod_name = response.mod.name
 
         meta_file = QSettings(str(meta_file_name), QSettings.Format.IniFormat)
-        meta_file.beginGroup("General")
         meta_file.setValue("gameName", self.__organizer.managedGame().gameShortName())
         meta_file.setValue("modID", response.mod.mod_id)
         meta_file.setValue("fileID", response.file_details.file_id)
         meta_file.setValue("url", f"https://www.nexusmods.com/skyrimspecialedition/mods/{response.mod.mod_id}")
         meta_file.setValue("name", name)
-        meta_file.setValue("description", response.mod.description)
+        meta_file.setValue("description", response.file_details.description)
         meta_file.setValue("modName", mod_name)
         meta_file.setValue("version", response.file_details.version)
         meta_file.setValue("newestVersion", "")
@@ -562,7 +561,6 @@ class DownloadManagerModel:
         meta_file.setValue("uninstalled", "false")
         meta_file.setValue("paused", "false")
         meta_file.setValue("removed", "false")
-        meta_file.endGroup()
         meta_file.sync()
         return meta_file_name
 
